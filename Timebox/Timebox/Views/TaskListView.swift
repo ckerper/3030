@@ -103,12 +103,10 @@ struct TaskListView: View {
             }
             if !task.isCompleted {
                 Button("Complete") {
-                    if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
-                        if idx == timerVM.currentTaskIndex {
-                            timerVM.completeCurrentTask()
-                        } else {
-                            taskListVM.completeTask(at: idx)
-                        }
+                    if task.id == timerVM.activeTaskId {
+                        timerVM.completeCurrentTask()
+                    } else if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
+                        taskListVM.completeTask(at: idx)
                     }
                 }
                 Button("Insert Divider Here") {
@@ -263,10 +261,11 @@ struct TaskListView: View {
     // MARK: - Task Row (pending)
 
     private func taskRow(task: TaskItem, fullIndex: Int, times: (start: Date, end: Date)?) -> some View {
-        TaskRowView(
+        let isActiveTask = task.id == timerVM.activeTaskId
+        return TaskRowView(
             task: task,
             index: fullIndex,
-            isActive: fullIndex == timerVM.currentTaskIndex && (timerVM.isRunning || timerVM.isOvertime),
+            isActive: isActiveTask && (timerVM.isRunning || timerVM.isOvertime || timerVM.remainingTime > 0),
             isCompleted: false,
             showDuration: settings.showTaskDuration,
             showTimes: settings.showPerTaskTimes,
@@ -280,7 +279,7 @@ struct TaskListView: View {
                 editingTask = task
             },
             onComplete: {
-                if fullIndex == timerVM.currentTaskIndex {
+                if isActiveTask {
                     timerVM.completeCurrentTask()
                 } else {
                     taskListVM.completeTask(at: fullIndex)

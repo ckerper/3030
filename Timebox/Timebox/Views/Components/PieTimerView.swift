@@ -2,6 +2,7 @@ import SwiftUI
 
 /// Pie timer that represents time in absolute scale:
 /// A 10-minute slice always appears the same physical size regardless of total task duration.
+/// High contrast: spent = near-white (95%), remaining = near-black (90%).
 struct PieTimerView: View {
     let remainingTime: TimeInterval
     let totalDuration: TimeInterval
@@ -10,31 +11,57 @@ struct PieTimerView: View {
     let color: Color
 
     // Scale: how many seconds per full circle
-    // Using 60 minutes as the full circle reference
     private let fullCircleSeconds: TimeInterval = 3600
 
-    private var sweepAngle: Double {
+    // Remaining time as a sweep angle (absolute scale)
+    private var remainingSweep: Double {
         guard !isOvertime else { return 0 }
         let fraction = min(remainingTime / fullCircleSeconds, 1.0)
         return fraction * 360
     }
 
+    // Spent time as a sweep angle (absolute scale)
+    private var spentSweep: Double {
+        guard !isOvertime, totalDuration > 0 else { return 0 }
+        let spentSeconds = totalDuration - remainingTime
+        let fraction = min(max(spentSeconds, 0) / fullCircleSeconds, 1.0)
+        return fraction * 360
+    }
+
+    // High-contrast colors
+    private let spentFillColor = Color.white.opacity(0.95)
+    private let remainingFillColor = Color.black.opacity(0.90)
+
     var body: some View {
         ZStack {
-            // Background circle
+            // Base circle — subtle gray so the pie is always visible
             Circle()
-                .fill(Color(.systemGray5))
+                .fill(Color(.systemGray4))
 
-            // Pie segment for remaining time
-            if !isOvertime && sweepAngle > 0 {
-                PieSlice(startAngle: .degrees(-90), endAngle: .degrees(-90 + sweepAngle))
-                    .fill(color.opacity(0.8))
+            // Spent time slice (near-white) — drawn first, from 12 o'clock
+            if !isOvertime && spentSweep > 0 {
+                PieSlice(
+                    startAngle: .degrees(-90),
+                    endAngle: .degrees(-90 + spentSweep)
+                )
+                .fill(spentFillColor)
             }
 
-            // Overtime: pulsing red ring
+            // Remaining time slice (near-black) — drawn after spent
+            if !isOvertime && remainingSweep > 0 {
+                PieSlice(
+                    startAngle: .degrees(-90 + spentSweep),
+                    endAngle: .degrees(-90 + spentSweep + remainingSweep)
+                )
+                .fill(remainingFillColor)
+            }
+
+            // Overtime: full red ring pulse
             if isOvertime {
                 Circle()
-                    .strokeBorder(Color.red.opacity(0.6), lineWidth: 8)
+                    .fill(Color.red.opacity(0.15))
+                Circle()
+                    .strokeBorder(Color.red.opacity(0.7), lineWidth: 8)
                     .scaleEffect(1.02)
                     .animation(
                         .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
@@ -56,7 +83,8 @@ struct PieTimerView: View {
                 } else {
                     Text(TimeFormatting.format(remainingTime))
                         .font(.system(size: 20, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.white)
+                        .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
                 }
             }
         }

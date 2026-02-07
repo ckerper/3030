@@ -40,18 +40,22 @@ struct ContentView: View {
                 // Top toolbar
                 toolbar
 
-                // Total / Finish At above timer (#13)
+                // Total / Finish At above timer
                 timeInfoHeader
                     .padding(.horizontal, 20)
                     .padding(.bottom, 4)
 
-                // Timer section
+                // Timer section with +/- in ring corners (#2)
                 timerSection
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 8)
 
-                // Complete button (when timer running)
-                if timerVM.isRunning || timerVM.isOvertime {
-                    completeButton
+                // Current task title
+                if let task = timerVM.currentTask {
+                    Text(task.title)
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
                         .padding(.bottom, 8)
                 }
 
@@ -73,9 +77,11 @@ struct ContentView: View {
                 timerVM.loadCurrentTask()
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .iCloudDataDidChange)) { _ in
-            // Reload data when iCloud sync occurs
+        .onChange(of: taskListVM.taskList.tasks) { _, _ in
+            // Whenever the task list changes, sync timer to first pending (#1)
+            timerVM.syncToFirstPending()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .iCloudDataDidChange)) { _ in }
         .sheet(isPresented: $showPresets) {
             PresetsView(presetVM: presetVM, taskListVM: taskListVM)
         }
@@ -86,9 +92,6 @@ struct ContentView: View {
             AddTaskView(insertIndex: nil) { tasks in
                 for task in tasks {
                     taskListVM.addTask(task)
-                }
-                if timerVM.currentTask == nil {
-                    timerVM.loadCurrentTask()
                 }
             }
         }
@@ -101,10 +104,8 @@ struct ContentView: View {
             // Undo/Redo
             HStack(spacing: 4) {
                 Button {
-                    let previousIndex = timerVM.currentTaskIndex
                     taskListVM.undo()
-                    // #9: If undo restored a previously-completed task, jump timer back
-                    timerVM.syncAfterUndo(taskListVM: taskListVM, previousIndex: previousIndex)
+                    timerVM.syncAfterUndo(taskListVM: taskListVM)
                 } label: {
                     Image(systemName: "arrow.uturn.backward")
                         .font(.system(size: 18))
@@ -122,6 +123,7 @@ struct ContentView: View {
 
                 Button {
                     taskListVM.redo()
+                    timerVM.syncToFirstPending()
                 } label: {
                     Image(systemName: "arrow.uturn.forward")
                         .font(.system(size: 18))
@@ -132,7 +134,6 @@ struct ContentView: View {
 
             Spacer()
 
-            // Auto-loop indicator
             if settings.autoLoop {
                 Image(systemName: "repeat")
                     .font(.system(size: 14))
@@ -141,7 +142,6 @@ struct ContentView: View {
 
             Spacer()
 
-            // Actions
             HStack(spacing: 16) {
                 Button {
                     showAddTask = true
@@ -169,7 +169,7 @@ struct ContentView: View {
         .padding(.vertical, 10)
     }
 
-    // MARK: - Time Info Header (#13 — above timer)
+    // MARK: - Time Info Header
 
     private var timeInfoHeader: some View {
         HStack {
@@ -200,10 +200,10 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Timer Section
+    // MARK: - Timer Section (#2: +/- buttons overlaid on ring corners)
 
     private var timerSection: some View {
-        VStack(spacing: 12) {
+        ZStack {
             if settings.showPieTimer {
                 PieTimerView(
                     remainingTime: timerVM.remainingTime,
@@ -224,38 +224,33 @@ struct ContentView: View {
                 )
             }
 
-            // Timer adjustment buttons — use shared increment
+            // +/- buttons at bottom-left and bottom-right of the timer (#2)
             if timerVM.isRunning || timerVM.remainingTime > 0 || timerVM.isOvertime {
-                TimerAdjustmentButtons(timerVM: timerVM, increment: currentIncrement)
-            }
+                let size: CGFloat = settings.showPieTimer ? 180 : 220
+                HStack {
+                    Button {
+                        timerVM.adjustTime(by: -currentIncrement)
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .font(.system(size: 26))
+                            .foregroundColor(.secondary)
+                    }
 
-            // Current task title
-            if let task = timerVM.currentTask {
-                Text(task.title)
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
+                    Spacer()
+
+                    Button {
+                        timerVM.adjustTime(by: currentIncrement)
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 26))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .frame(width: size + 20)
+                .offset(y: size * 0.38)
             }
         }
-    }
-
-    // MARK: - Complete Button
-
-    private var completeButton: some View {
-        Button {
-            timerVM.completeCurrentTask()
-        } label: {
-            Label("Complete", systemImage: "checkmark.circle.fill")
-                .font(.headline)
-                .foregroundColor(.white)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(
-                    Capsule()
-                        .fill(Color.green)
-                )
-        }
+        .frame(height: settings.showPieTimer ? 210 : 250)
     }
 }
 

@@ -4,41 +4,11 @@ struct SettingsView: View {
     @ObservedObject var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
 
-    // For custom increment input
-    @State private var customIncrementMinutes: String = ""
-
     var body: some View {
         NavigationView {
             Form {
                 // Timer
                 Section("Timer") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Active task adjustment increment")
-                            .font(.subheadline)
-                        HStack(spacing: 8) {
-                            ForEach([60.0, 300.0, 600.0], id: \.self) { value in
-                                incrementButton(value: value)
-                            }
-                            // Custom input
-                            HStack(spacing: 4) {
-                                TextField("Custom", text: $customIncrementMinutes)
-                                    .keyboardType(.numberPad)
-                                    .frame(width: 50)
-                                    .textFieldStyle(.roundedBorder)
-                                    .font(.caption)
-                                Text("min")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .onChange(of: customIncrementMinutes) { _, newValue in
-                                if let mins = Double(newValue), mins > 0 {
-                                    settings.timerAdjustIncrement = mins * 60
-                                    settings.save()
-                                }
-                            }
-                        }
-                    }
-
                     Toggle("Auto Start Next Task", isOn: $settings.autoStartNextTask)
                         .onChange(of: settings.autoStartNextTask) { _, _ in settings.save() }
 
@@ -94,35 +64,7 @@ struct SettingsView: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .onAppear {
-                let mins = Int(settings.timerAdjustIncrement / 60)
-                if ![1, 5, 10].contains(mins) {
-                    customIncrementMinutes = "\(mins)"
-                }
-            }
         }
-    }
-
-    private func incrementButton(value: TimeInterval) -> some View {
-        let mins = Int(value / 60)
-        let isSelected = settings.timerAdjustIncrement == value
-        return Button {
-            settings.timerAdjustIncrement = value
-            customIncrementMinutes = ""
-            settings.save()
-        } label: {
-            Text("±\(mins)m")
-                .font(.caption)
-                .fontWeight(isSelected ? .bold : .regular)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule()
-                        .fill(isSelected ? Color.accentColor : Color(.tertiarySystemFill))
-                )
-                .foregroundColor(isSelected ? .white : .primary)
-        }
-        .buttonStyle(.plain)
     }
 }
 

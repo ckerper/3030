@@ -6,42 +6,53 @@ struct TimerDialView: View {
 
     let dialSize: CGFloat
 
-    private var strokeColor: Color {
-        if timerVM.isOvertime {
-            return .red
-        }
-        return TaskColor.color(for: timerVM.currentColor)
+    // High-contrast colors (#5):
+    // Spent time (elapsed) = near-white: white at 95% opacity over the background
+    // Remaining time = near-black: black at 90% opacity
+    private var spentColor: Color {
+        if timerVM.isOvertime { return Color.red }
+        return Color.white.opacity(0.95)
     }
 
-    private var trackColor: Color {
-        Color(.systemGray4)
+    private var remainingColor: Color {
+        Color.black.opacity(0.90)
+    }
+
+    // How much of the circle is "remaining" (1.0 = full, 0.0 = empty)
+    private var remainingFraction: Double {
+        guard timerVM.totalDuration > 0 else { return 1.0 }
+        if timerVM.isOvertime { return 0 }
+        return max(0, min(1, timerVM.remainingTime / timerVM.totalDuration))
     }
 
     var body: some View {
         ZStack {
-            // Background track
+            // Full circle = spent time (near-white)
             Circle()
-                .stroke(trackColor.opacity(0.5), style: StrokeStyle(lineWidth: 14))
+                .stroke(spentColor, style: StrokeStyle(lineWidth: 16))
                 .frame(width: dialSize, height: dialSize)
+                .shadow(color: spentColor.opacity(0.3), radius: 4)
 
-            // Progress arc — high contrast with shadow for visibility at distance
+            // Remaining arc on top = near-black, shrinks counterclockwise (#4)
+            // trim(from: 0, to: fraction) starts at 12 o'clock and goes clockwise.
+            // We want remaining to start at 12 o'clock and shrink,
+            // so we draw from 0 to remainingFraction.
             Circle()
-                .trim(from: 0, to: timerVM.isOvertime ? 1.0 : timerVM.progress)
+                .trim(from: 0, to: remainingFraction)
                 .stroke(
-                    strokeColor,
-                    style: StrokeStyle(lineWidth: 14, lineCap: .round)
+                    remainingColor,
+                    style: StrokeStyle(lineWidth: 16, lineCap: .round)
                 )
                 .frame(width: dialSize, height: dialSize)
-                .shadow(color: strokeColor.opacity(0.6), radius: 6)
                 .rotationEffect(.degrees(-90))
-                .animation(.linear(duration: 0.1), value: timerVM.progress)
+                .animation(.linear(duration: 0.1), value: remainingFraction)
 
             // Overtime pulsing ring
             if timerVM.isOvertime {
                 Circle()
-                    .stroke(Color.red.opacity(0.3), lineWidth: 20)
+                    .stroke(Color.red.opacity(0.4), lineWidth: 22)
                     .frame(width: dialSize, height: dialSize)
-                    .scaleEffect(timerVM.isOvertime ? 1.05 : 1.0)
+                    .scaleEffect(1.05)
                     .animation(
                         .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
                         value: timerVM.isOvertime
@@ -50,17 +61,14 @@ struct TimerDialView: View {
 
             // Center content
             VStack(spacing: 6) {
-                // Task icon
                 if let task = timerVM.currentTask {
                     taskIconView(task)
                 }
 
-                // Time display
                 Text(timerVM.displayTime)
                     .font(.system(size: dialSize * 0.18, weight: .light, design: .monospaced))
                     .foregroundColor(timerVM.isOvertime ? .red : .primary)
 
-                // Status label
                 if timerVM.isOvertime {
                     Text("OVERTIME")
                         .font(.caption)
@@ -92,58 +100,13 @@ struct TimerDialView: View {
             EmptyView()
         } else if task.icon.unicodeScalars.first?.properties.isEmoji == true
                     && task.icon.unicodeScalars.count <= 2 {
-            // Emoji
             Text(task.icon)
                 .font(.system(size: dialSize * 0.12))
         } else {
-            // SF Symbol
             Image(systemName: task.icon)
                 .font(.system(size: dialSize * 0.1))
-                .foregroundColor(strokeColor)
+                .foregroundColor(.primary)
         }
-    }
-}
-
-// MARK: - Timer Adjustment Buttons
-
-struct TimerAdjustmentButtons: View {
-    @ObservedObject var timerVM: TimerViewModel
-    let increment: TimeInterval
-
-    var body: some View {
-        HStack(spacing: 40) {
-            Button {
-                timerVM.adjustTime(by: -increment)
-            } label: {
-                Label(
-                    "Subtract \(formatIncrement(increment))",
-                    systemImage: "minus.circle.fill"
-                )
-                .font(.title2)
-                .labelStyle(.iconOnly)
-                .foregroundColor(.secondary)
-            }
-
-            Button {
-                timerVM.adjustTime(by: increment)
-            } label: {
-                Label(
-                    "Add \(formatIncrement(increment))",
-                    systemImage: "plus.circle.fill"
-                )
-                .font(.title2)
-                .labelStyle(.iconOnly)
-                .foregroundColor(.secondary)
-            }
-        }
-    }
-
-    private func formatIncrement(_ seconds: TimeInterval) -> String {
-        let minutes = Int(seconds / 60)
-        if minutes > 0 {
-            return "\(minutes)m"
-        }
-        return "\(Int(seconds))s"
     }
 }
 
