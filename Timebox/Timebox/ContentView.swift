@@ -210,7 +210,7 @@ struct ContentView: View {
                     totalDuration: timerVM.totalDuration,
                     isOvertime: timerVM.isOvertime,
                     overtimeElapsed: timerVM.overtimeElapsed,
-                    color: TaskColor.color(for: timerVM.currentColor)
+                    colorName: timerVM.currentColor
                 )
                 .frame(width: 180, height: 180)
                 .onTapGesture {

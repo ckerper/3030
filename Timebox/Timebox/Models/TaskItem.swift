@@ -62,6 +62,40 @@ struct TaskColor {
 
     static let paletteNames: [String] = palette.map(\.name)
 
+    // RGB components for computing tints and shades
+    private static let rgbValues: [String: (r: Double, g: Double, b: Double)] = [
+        "red": (0.91, 0.30, 0.24),
+        "orange": (0.95, 0.61, 0.07),
+        "yellow": (0.95, 0.77, 0.06),
+        "green": (0.18, 0.80, 0.44),
+        "teal": (0.09, 0.71, 0.65),
+        "blue": (0.20, 0.60, 0.86),
+        "indigo": (0.36, 0.42, 0.75),
+        "purple": (0.61, 0.35, 0.71),
+        "pink": (0.91, 0.38, 0.57),
+        "brown": (0.62, 0.47, 0.36),
+        "gray": (0.58, 0.65, 0.65),
+        "slate": (0.38, 0.49, 0.55),
+    ]
+
+    /// Very pale tint of the color (for spent/background portions of timers)
+    static func lightTint(for name: String) -> Color {
+        guard let rgb = rgbValues[name] else { return .white }
+        // Lerp 85% toward white
+        return Color(
+            red: rgb.r + 0.85 * (1.0 - rgb.r),
+            green: rgb.g + 0.85 * (1.0 - rgb.g),
+            blue: rgb.b + 0.85 * (1.0 - rgb.b)
+        )
+    }
+
+    /// Very deep shade of the color (for remaining portions of timers)
+    static func darkShade(for name: String) -> Color {
+        guard let rgb = rgbValues[name] else { return .black }
+        // Keep 25% of original color intensity
+        return Color(red: rgb.r * 0.25, green: rgb.g * 0.25, blue: rgb.b * 0.25)
+    }
+
     /// Pick the next color that differs from the given previous color.
     /// Cycles through the palette in order, skipping the previous color.
     static func nextColor(after previousColorName: String?) -> String {

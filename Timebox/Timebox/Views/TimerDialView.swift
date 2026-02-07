@@ -6,16 +6,14 @@ struct TimerDialView: View {
 
     let dialSize: CGFloat
 
-    // High-contrast colors (#5):
-    // Spent time (elapsed) = near-white: white at 95% opacity over the background
-    // Remaining time = near-black: black at 90% opacity
+    // High-contrast tint/shade of the task color
     private var spentColor: Color {
         if timerVM.isOvertime { return Color.red }
-        return Color.white.opacity(0.95)
+        return TaskColor.lightTint(for: timerVM.currentColor)
     }
 
     private var remainingColor: Color {
-        Color.black.opacity(0.90)
+        TaskColor.darkShade(for: timerVM.currentColor)
     }
 
     // How much of the circle is "remaining" (1.0 = full, 0.0 = empty)
