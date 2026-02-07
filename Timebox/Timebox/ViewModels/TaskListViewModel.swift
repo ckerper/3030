@@ -35,20 +35,45 @@ class TaskListViewModel: ObservableObject {
         return TaskListModel()
     }
 
+    // MARK: - Auto-Color (#3)
+
+    /// Returns the color of the last non-completed task in the list (for auto-color assignment).
+    var lastTaskColor: String? {
+        taskList.tasks.last(where: { !$0.isCompleted })?.colorName
+    }
+
     // MARK: - Task CRUD
 
     func addTask(_ task: TaskItem, at index: Int? = nil) {
         saveUndoState(description: "Add task")
+        // Auto-assign color if task still has the default "blue"
+        var newTask = task
+        if newTask.colorName == "blue" {
+            newTask.colorName = TaskColor.nextColor(after: lastTaskColor)
+        }
         if let index = index {
-            taskList.insertTask(task, at: index)
+            // When inserting at a position, pick color based on the task above
+            let colorAbove = index > 0 ? taskList.tasks[index - 1].colorName : lastTaskColor
+            if task.colorName == "blue" {
+                newTask.colorName = TaskColor.nextColor(after: colorAbove)
+            }
+            taskList.insertTask(newTask, at: index)
         } else {
-            taskList.tasks.append(task)
+            taskList.tasks.append(newTask)
         }
     }
 
     func addTasks(_ tasks: [TaskItem]) {
         saveUndoState(description: "Add tasks")
-        taskList.tasks.append(contentsOf: tasks)
+        var colorRef = lastTaskColor
+        for task in tasks {
+            var newTask = task
+            if newTask.colorName == "blue" {
+                newTask.colorName = TaskColor.nextColor(after: colorRef)
+            }
+            colorRef = newTask.colorName
+            taskList.tasks.append(newTask)
+        }
     }
 
     func removeTask(at index: Int) {
@@ -70,13 +95,40 @@ class TaskListViewModel: ObservableObject {
 
     func completeTask(at index: Int) {
         guard taskList.tasks.indices.contains(index) else { return }
+        saveUndoState(description: "Complete task")
         taskList.tasks[index].isCompleted = true
+    }
+
+    /// Mark a completed task as not completed and move it back to the active list.
+    func uncompleteTask(id: UUID) {
+        saveUndoState(description: "Uncomplete task")
+        if let index = taskList.tasks.firstIndex(where: { $0.id == id }) {
+            taskList.tasks[index].isCompleted = false
+        }
     }
 
     func resetCompletedStates() {
         for i in taskList.tasks.indices {
             taskList.tasks[i].isCompleted = false
         }
+    }
+
+    // MARK: - Computed: Separate active vs completed (#10)
+
+    var pendingTasks: [TaskItem] {
+        taskList.tasks.filter { !$0.isCompleted }
+    }
+
+    var completedTasks: [TaskItem] {
+        taskList.tasks.filter { $0.isCompleted }
+    }
+
+    // The index in the full tasks array for a given pending task position
+    func fullIndex(forPendingIndex pendingIdx: Int) -> Int? {
+        let pending = pendingTasks
+        guard pendingIdx < pending.count else { return nil }
+        let targetId = pending[pendingIdx].id
+        return taskList.tasks.firstIndex(where: { $0.id == targetId })
     }
 
     // MARK: - Reordering
@@ -86,13 +138,58 @@ class TaskListViewModel: ObservableObject {
         taskList.tasks.move(fromOffsets: source, toOffset: destination)
     }
 
+    func movePendingTask(from source: IndexSet, to destination: Int) {
+        saveUndoState(description: "Reorder tasks")
+        // Map pending indices to full list indices
+        let pending = pendingTasks
+        var fullTasks = taskList.tasks
+
+        // Get the items being moved
+        let movedItems = source.map { pending[$0] }
+        // Remove them from the full list
+        for item in movedItems {
+            if let idx = fullTasks.firstIndex(where: { $0.id == item.id }) {
+                fullTasks.remove(at: idx)
+            }
+        }
+        // Find insertion point in full list
+        let pendingAfterRemove = fullTasks.filter { !$0.isCompleted }
+        let insertFullIdx: Int
+        if destination >= pendingAfterRemove.count {
+            // Insert at the end of pending tasks (before completed tasks)
+            if let lastPendingIdx = fullTasks.lastIndex(where: { !$0.isCompleted }) {
+                insertFullIdx = lastPendingIdx + 1
+            } else {
+                insertFullIdx = 0
+            }
+        } else {
+            let targetId = pendingAfterRemove[destination].id
+            insertFullIdx = fullTasks.firstIndex(where: { $0.id == targetId }) ?? fullTasks.count
+        }
+        // Insert items
+        for (offset, item) in movedItems.enumerated() {
+            fullTasks.insert(item, at: insertFullIdx + offset)
+        }
+        taskList.tasks = fullTasks
+    }
+
     func moveToBottom(taskId: UUID) {
         saveUndoState(description: "Move to bottom")
+        // If the task is completed, uncomplete it and move to bottom of pending list
+        if let index = taskList.tasks.firstIndex(where: { $0.id == taskId }),
+           taskList.tasks[index].isCompleted {
+            taskList.tasks[index].isCompleted = false
+        }
         taskList.moveToBottom(taskId: taskId)
     }
 
     func moveToTop(taskId: UUID) {
         saveUndoState(description: "Move to top")
+        // If the task is completed, uncomplete it
+        if let index = taskList.tasks.firstIndex(where: { $0.id == taskId }),
+           taskList.tasks[index].isCompleted {
+            taskList.tasks[index].isCompleted = false
+        }
         taskList.moveToTop(taskId: taskId)
     }
 
@@ -131,7 +228,7 @@ class TaskListViewModel: ObservableObject {
         if removeDuplicates {
             taskList.removeDuplicates()
         }
-        undoManager.clear() // Reset undo stack when loading preset
+        undoManager.clear()
     }
 
     func createPreset(name: String) -> Preset {
@@ -168,17 +265,42 @@ class TaskListViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Computed Properties
+    // MARK: - Computed Properties (#5: total time uses timer remaining for active task)
 
     var totalListTime: TimeInterval {
         taskList.totalDuration
     }
 
+    func liveTotalTime(timerRemaining: TimeInterval, activeIndex: Int, isTimerActive: Bool) -> TimeInterval {
+        let tasks = taskList.activeTasks
+        var total: TimeInterval = 0
+        for (i, task) in tasks.enumerated() {
+            if task.isCompleted { continue }
+            if isTimerActive && i == activeIndex {
+                // Use the live remaining time instead of planned duration
+                total += max(0, timerRemaining)
+            } else {
+                total += task.duration
+            }
+        }
+        return total
+    }
+
+    func formattedTotalTime(timerRemaining: TimeInterval, activeIndex: Int, isTimerActive: Bool) -> String {
+        TimeFormatting.format(liveTotalTime(timerRemaining: timerRemaining, activeIndex: activeIndex, isTimerActive: isTimerActive))
+    }
+
+    func estimatedFinishTime(timerRemaining: TimeInterval, activeIndex: Int, isTimerActive: Bool) -> String {
+        let remaining = liveTotalTime(timerRemaining: timerRemaining, activeIndex: activeIndex, isTimerActive: isTimerActive)
+        return TimeFormatting.formatClockTime(Date().addingTimeInterval(remaining))
+    }
+
+    // Legacy (non-live) versions for when timer isn't relevant
     var formattedTotalTime: String {
         TimeFormatting.format(totalListTime)
     }
 
-    var estimatedFinishTime: String {
+    var estimatedFinishTimeString: String {
         TimeFormatting.formatClockTime(taskList.estimatedFinishTime())
     }
 }

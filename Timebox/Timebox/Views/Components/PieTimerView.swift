@@ -6,6 +6,7 @@ struct PieTimerView: View {
     let remainingTime: TimeInterval
     let totalDuration: TimeInterval
     let isOvertime: Bool
+    let overtimeElapsed: TimeInterval
     let color: Color
 
     // Scale: how many seconds per full circle
@@ -25,8 +26,21 @@ struct PieTimerView: View {
                 .fill(Color(.systemGray5))
 
             // Pie segment for remaining time
-            PieSlice(startAngle: .degrees(-90), endAngle: .degrees(-90 + sweepAngle))
-                .fill(isOvertime ? Color.red.opacity(0.7) : color.opacity(0.8))
+            if !isOvertime && sweepAngle > 0 {
+                PieSlice(startAngle: .degrees(-90), endAngle: .degrees(-90 + sweepAngle))
+                    .fill(color.opacity(0.8))
+            }
+
+            // Overtime: pulsing red ring
+            if isOvertime {
+                Circle()
+                    .strokeBorder(Color.red.opacity(0.6), lineWidth: 8)
+                    .scaleEffect(1.02)
+                    .animation(
+                        .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
+                        value: isOvertime
+                    )
+            }
 
             // Center text
             VStack(spacing: 2) {
@@ -35,12 +49,15 @@ struct PieTimerView: View {
                         .font(.caption2)
                         .fontWeight(.bold)
                         .foregroundColor(.red)
+
+                    Text(TimeFormatting.formatOvertime(overtimeElapsed))
+                        .font(.system(size: 20, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.red)
+                } else {
+                    Text(TimeFormatting.format(remainingTime))
+                        .font(.system(size: 20, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.primary)
                 }
-                Text(isOvertime
-                    ? TimeFormatting.formatOvertime(totalDuration - remainingTime)
-                    : TimeFormatting.format(remainingTime))
-                    .font(.system(size: 20, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.primary)
             }
         }
     }
@@ -75,6 +92,7 @@ struct PieSlice: Shape {
         remainingTime: 600,
         totalDuration: 1800,
         isOvertime: false,
+        overtimeElapsed: 0,
         color: .blue
     )
     .frame(width: 200, height: 200)

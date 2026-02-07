@@ -17,7 +17,7 @@ class TimerViewModel: ObservableObject {
     private var settings: AppSettings?
 
     // Total duration of the current task (for progress calculation)
-    var totalDuration: TimeInterval = 0
+    @Published var totalDuration: TimeInterval = 0
 
     // Progress from 0 to 1 (for dial)
     var progress: Double {
@@ -110,21 +110,27 @@ class TimerViewModel: ObservableObject {
     func advanceToNext() {
         guard let taskList = taskList, let settings = settings else { return }
 
+        // Find the next non-completed task after current
         let tasks = taskList.taskList.tasks
-        let nextIndex = currentTaskIndex + 1
+        var nextIndex: Int? = nil
+        for i in (currentTaskIndex + 1)..<tasks.count {
+            if !tasks[i].isCompleted {
+                nextIndex = i
+                break
+            }
+        }
 
-        if nextIndex < tasks.count {
-            currentTaskIndex = nextIndex
+        if let next = nextIndex {
+            currentTaskIndex = next
             loadCurrentTask()
             if settings.autoStartNextTask {
                 start()
             } else {
                 pause()
             }
-        } else if settings.autoLoop && !tasks.isEmpty {
-            // Loop back to first task
+        } else if settings.autoLoop {
+            // Loop: reset all and go back to first
             currentTaskIndex = 0
-            // Reset all completed states
             taskList.resetCompletedStates()
             loadCurrentTask()
             if settings.autoStartNextTask {
@@ -164,7 +170,6 @@ class TimerViewModel: ObservableObject {
 
     func adjustTime(by amount: TimeInterval) {
         if isOvertime {
-            // In overtime, adding time brings us back to countdown
             if amount > 0 {
                 isOvertime = false
                 remainingTime = amount
@@ -187,6 +192,29 @@ class TimerViewModel: ObservableObject {
 
     var currentColor: String {
         currentTask?.colorName ?? "blue"
+    }
+
+    // MARK: - Undo Sync (#9)
+
+    /// Called after undo to detect if the previously-active task was uncompleted,
+    /// and if so, jump the timer back to it.
+    func syncAfterUndo(taskListVM: TaskListViewModel, previousIndex: Int) {
+        let tasks = taskListVM.taskList.tasks
+        // If the task at previousIndex exists and is no longer completed,
+        // it means undo restored it — jump back to it
+        if previousIndex < tasks.count && !tasks[previousIndex].isCompleted {
+            // Check if we had advanced past it
+            if currentTaskIndex > previousIndex || (currentTaskIndex != previousIndex) {
+                pause()
+                currentTaskIndex = previousIndex
+                loadCurrentTask()
+            }
+        }
+        // Also handle the case where the current task index is now out of bounds
+        if currentTaskIndex >= tasks.count && !tasks.isEmpty {
+            currentTaskIndex = tasks.count - 1
+            loadCurrentTask()
+        }
     }
 
     // MARK: - Private

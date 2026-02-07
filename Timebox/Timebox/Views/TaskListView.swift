@@ -6,21 +6,23 @@ struct TaskListView: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var gestureHints: GestureHintManager
 
+    // Shared increment from ContentView
+    @Binding var selectedIncrementIndex: Int
+    let incrementOptions: [TimeInterval]
+
     @State private var editingTask: TaskItem?
     @State private var showAddTask = false
     @State private var addTaskInsertIndex: Int?
     @State private var showActionMenu = false
     @State private var actionMenuTask: TaskItem?
     @State private var gestureHintText: String?
-    @State private var showDividerInsert = false
+    @State private var showCompletedSection = false
 
-    // Increment selector for planned tasks
-    @State private var selectedIncrementIndex = 1 // 0=1m, 1=5m, 2=15m
-    private let incrementOptions: [TimeInterval] = [60, 300, 900]
     private let incrementLabels = ["1m", "5m", "15m"]
 
     private var currentIncrement: TimeInterval {
-        incrementOptions[selectedIncrementIndex]
+        guard selectedIncrementIndex < incrementOptions.count else { return 300 }
+        return incrementOptions[selectedIncrementIndex]
     }
 
     var body: some View {
@@ -32,50 +34,35 @@ struct TaskListView: View {
 
             // Task list
             List {
-                ForEach(Array(taskListVM.taskList.tasks.enumerated()), id: \.element.id) { index, task in
-                    VStack(spacing: 0) {
-                        // Divider before this row if applicable
-                        if taskListVM.taskList.dividerIndex == index {
-                            TimeDividerView {
-                                taskListVM.removeDivider()
-                            }
-                        }
+                // MARK: - Pending Tasks Section
+                pendingTasksSection
 
-                        taskRow(task: task, index: index)
-                    }
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) {
-                            taskListVM.removeTask(id: task.id)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
-                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                        Button {
-                            taskListVM.moveToBottom(taskId: task.id)
-                        } label: {
-                            Label("Move to Bottom", systemImage: "arrow.down.to.line")
-                        }
-                        .tint(.orange)
-                    }
-                }
-                .onMove { source, destination in
-                    taskListVM.moveTask(from: source, to: destination)
-                }
-
-                // Divider at end if applicable
+                // MARK: - Divider at end if applicable
                 if let divIdx = taskListVM.taskList.dividerIndex,
-                   divIdx == taskListVM.taskList.tasks.count {
+                   divIdx == taskListVM.pendingTasks.count {
                     TimeDividerView {
                         taskListVM.removeDivider()
                     }
                     .listRowSeparator(.hidden)
                 }
 
-                // Footer info
-                footerSection
+                // Auto-loop indicator
+                if settings.autoLoop {
+                    HStack {
+                        Image(systemName: "repeat")
+                            .font(.caption)
+                        Text("List will repeat")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.orange)
+                    .listRowSeparator(.hidden)
+                    .padding(.vertical, 4)
+                }
+
+                // MARK: - Completed Tasks Section (#10)
+                if !taskListVM.completedTasks.isEmpty {
+                    completedTasksSection
+                }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -114,15 +101,26 @@ struct TaskListView: View {
                 gestureHints.recordMenuAction("moveToBottom")
                 taskListVM.moveToBottom(taskId: task.id)
             }
-            Button("Insert Divider Here") {
-                if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
-                    taskListVM.setDivider(at: idx)
+            if !task.isCompleted {
+                Button("Complete") {
+                    if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
+                        if idx == timerVM.currentTaskIndex {
+                            timerVM.completeCurrentTask()
+                        } else {
+                            taskListVM.completeTask(at: idx)
+                        }
+                    }
                 }
-            }
-            Button("Insert Task Above") {
-                if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
-                    addTaskInsertIndex = idx
-                    showAddTask = true
+                Button("Insert Divider Here") {
+                    if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
+                        taskListVM.setDivider(at: idx)
+                    }
+                }
+                Button("Insert Task Above") {
+                    if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
+                        addTaskInsertIndex = idx
+                        showAddTask = true
+                    }
                 }
             }
             Button("Delete", role: .destructive) {
@@ -132,7 +130,6 @@ struct TaskListView: View {
             Button("Cancel", role: .cancel) {}
         }
         .overlay(alignment: .bottom) {
-            // Gesture hint toast
             if let hint = gestureHintText {
                 Text(hint)
                     .font(.caption)
@@ -174,16 +171,103 @@ struct TaskListView: View {
         .padding(.vertical, 6)
     }
 
-    // MARK: - Task Row
+    // MARK: - Pending Tasks
 
-    private func taskRow(task: TaskItem, index: Int) -> some View {
+    private var pendingTasksSection: some View {
+        let pending = taskListVM.pendingTasks
         let projectedTimes = taskListVM.taskList.projectedTimes()
-        let times = index < projectedTimes.count ? projectedTimes[index] : nil
 
-        return TaskRowView(
+        return ForEach(Array(pending.enumerated()), id: \.element.id) { pendingIdx, task in
+            let fullIdx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) ?? pendingIdx
+            let times = fullIdx < projectedTimes.count ? projectedTimes[fullIdx] : nil
+
+            VStack(spacing: 0) {
+                if taskListVM.taskList.dividerIndex == fullIdx {
+                    TimeDividerView {
+                        taskListVM.removeDivider()
+                    }
+                }
+
+                taskRow(task: task, fullIndex: fullIdx, times: times)
+            }
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button(role: .destructive) {
+                    taskListVM.removeTask(id: task.id)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                Button {
+                    taskListVM.moveToBottom(taskId: task.id)
+                } label: {
+                    Label("Move to Bottom", systemImage: "arrow.down.to.line")
+                }
+                .tint(.orange)
+            }
+        }
+        .onMove { source, destination in
+            taskListVM.movePendingTask(from: source, to: destination)
+        }
+    }
+
+    // MARK: - Completed Tasks Section (#10)
+
+    private var completedTasksSection: some View {
+        Section {
+            if showCompletedSection {
+                ForEach(taskListVM.completedTasks) { task in
+                    completedRow(task: task)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                taskListVM.removeTask(id: task.id)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                            Button {
+                                taskListVM.moveToTop(taskId: task.id)
+                            } label: {
+                                Label("Restore to Top", systemImage: "arrow.up.to.line")
+                            }
+                            .tint(.blue)
+                        }
+                }
+            }
+        } header: {
+            Button {
+                withAnimation {
+                    showCompletedSection.toggle()
+                }
+            } label: {
+                HStack {
+                    Image(systemName: showCompletedSection ? "chevron.down" : "chevron.right")
+                        .font(.caption2)
+                    Text("Completed (\(taskListVM.completedTasks.count))")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    Spacer()
+                }
+                .foregroundColor(.secondary)
+                .padding(.vertical, 4)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Task Row (pending)
+
+    private func taskRow(task: TaskItem, fullIndex: Int, times: (start: Date, end: Date)?) -> some View {
+        TaskRowView(
             task: task,
-            index: index,
-            isActive: index == timerVM.currentTaskIndex && timerVM.isRunning,
+            index: fullIndex,
+            isActive: fullIndex == timerVM.currentTaskIndex && (timerVM.isRunning || timerVM.isOvertime),
+            isCompleted: false,
             showDuration: settings.showTaskDuration,
             showTimes: settings.showPerTaskTimes,
             projectedStart: times?.start,
@@ -195,61 +279,75 @@ struct TaskListView: View {
             onEdit: {
                 editingTask = task
             },
+            onComplete: {
+                if fullIndex == timerVM.currentTaskIndex {
+                    timerVM.completeCurrentTask()
+                } else {
+                    taskListVM.completeTask(at: fullIndex)
+                }
+            },
             onMenu: {
                 actionMenuTask = task
                 showActionMenu = true
             }
         )
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
-            // Double-tap to edit
-            editingTask = task
-        }
     }
 
-    // MARK: - Footer
+    // MARK: - Completed Row
 
-    private var footerSection: some View {
-        VStack(spacing: 8) {
-            if settings.showTotalListTime {
-                HStack {
-                    Text("Total")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Text(taskListVM.formattedTotalTime)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .monospacedDigit()
+    private func completedRow(task: TaskItem) -> some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(task.color.opacity(0.4))
+                .frame(width: 6)
+                .padding(.vertical, 4)
+
+            if !task.icon.isEmpty {
+                Group {
+                    if task.icon.unicodeScalars.first?.properties.isEmoji == true
+                        && task.icon.unicodeScalars.count <= 2 {
+                        Text(task.icon)
+                            .font(.system(size: 16))
+                    } else {
+                        Image(systemName: task.icon)
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                    }
                 }
+                .frame(width: 24)
             }
 
-            if settings.showEstimatedFinish {
-                HStack {
-                    Text("Finish at")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Text(taskListVM.estimatedFinishTime)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                }
-            }
+            Text(task.title)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .strikethrough()
+                .lineLimit(1)
 
-            if settings.autoLoop {
-                HStack {
-                    Image(systemName: "repeat")
-                        .font(.caption)
-                    Text("List will repeat")
-                        .font(.caption)
-                }
-                .foregroundColor(.orange)
-                .padding(.top, 4)
+            Spacer()
+
+            Text(task.formattedDuration)
+                .font(.caption2)
+                .foregroundColor(.secondary.opacity(0.7))
+
+            // Menu for completed tasks (#12)
+            Button {
+                actionMenuTask = task
+                showActionMenu = true
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary.opacity(0.5))
+                    .frame(width: 24, height: 24)
             }
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 8)
-        .listRowSeparator(.hidden)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(.tertiarySystemGroupedBackground))
+        )
+        .opacity(0.8)
     }
 }
 
@@ -262,6 +360,8 @@ struct TaskListView: View {
         taskListVM: taskListVM,
         timerVM: timerVM,
         settings: settings,
-        gestureHints: GestureHintManager()
+        gestureHints: GestureHintManager(),
+        selectedIncrementIndex: .constant(1),
+        incrementOptions: [60, 300, 900]
     )
 }

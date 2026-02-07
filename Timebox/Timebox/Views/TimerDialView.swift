@@ -21,17 +21,18 @@ struct TimerDialView: View {
         ZStack {
             // Background track
             Circle()
-                .stroke(trackColor.opacity(0.3), style: StrokeStyle(lineWidth: 12))
+                .stroke(trackColor.opacity(0.5), style: StrokeStyle(lineWidth: 14))
                 .frame(width: dialSize, height: dialSize)
 
-            // Progress arc
+            // Progress arc — high contrast with shadow for visibility at distance
             Circle()
                 .trim(from: 0, to: timerVM.isOvertime ? 1.0 : timerVM.progress)
                 .stroke(
                     strokeColor,
-                    style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                    style: StrokeStyle(lineWidth: 14, lineCap: .round)
                 )
                 .frame(width: dialSize, height: dialSize)
+                .shadow(color: strokeColor.opacity(0.6), radius: 6)
                 .rotationEffect(.degrees(-90))
                 .animation(.linear(duration: 0.1), value: timerVM.progress)
 
@@ -107,15 +108,15 @@ struct TimerDialView: View {
 
 struct TimerAdjustmentButtons: View {
     @ObservedObject var timerVM: TimerViewModel
-    @ObservedObject var settings: AppSettings
+    let increment: TimeInterval
 
     var body: some View {
         HStack(spacing: 40) {
             Button {
-                timerVM.adjustTime(by: -settings.timerAdjustIncrement)
+                timerVM.adjustTime(by: -increment)
             } label: {
                 Label(
-                    "Subtract \(formatIncrement(settings.timerAdjustIncrement))",
+                    "Subtract \(formatIncrement(increment))",
                     systemImage: "minus.circle.fill"
                 )
                 .font(.title2)
@@ -124,10 +125,10 @@ struct TimerAdjustmentButtons: View {
             }
 
             Button {
-                timerVM.adjustTime(by: settings.timerAdjustIncrement)
+                timerVM.adjustTime(by: increment)
             } label: {
                 Label(
-                    "Add \(formatIncrement(settings.timerAdjustIncrement))",
+                    "Add \(formatIncrement(increment))",
                     systemImage: "plus.circle.fill"
                 )
                 .font(.title2)

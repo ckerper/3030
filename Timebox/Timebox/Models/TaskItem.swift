@@ -61,6 +61,18 @@ struct TaskColor {
     }
 
     static let paletteNames: [String] = palette.map(\.name)
+
+    /// Pick the next color that differs from the given previous color.
+    /// Cycles through the palette in order, skipping the previous color.
+    static func nextColor(after previousColorName: String?) -> String {
+        guard let prev = previousColorName,
+              let prevIndex = paletteNames.firstIndex(of: prev)
+        else {
+            return paletteNames.randomElement() ?? "blue"
+        }
+        let nextIndex = (prevIndex + 1) % paletteNames.count
+        return paletteNames[nextIndex]
+    }
 }
 
 // MARK: - Time Formatting

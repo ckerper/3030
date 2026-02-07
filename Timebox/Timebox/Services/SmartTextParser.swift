@@ -8,10 +8,9 @@ struct SmartTextParser {
     }
 
     /// Parse a single line of text into a task title and optional duration.
-    /// Examples:
-    ///   "Clear inbox 30" -> title: "Clear inbox", duration: 1800 (30 min)
-    ///   "Chapter 12" -> title: "Chapter", duration: 720 (12 min) — but ambiguous!
-    ///   "Write report" -> title: "Write report", duration: nil
+    /// A trailing number is always treated as minutes for the duration.
+    /// The only ambiguous case is "at [number]" or "@ [number]" — e.g. "Call at 11"
+    /// could mean an 11-minute timer or a reminder about 11 o'clock.
     static func parseLine(_ text: String) -> ParseResult {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else {
@@ -30,16 +29,16 @@ struct SmartTextParser {
 
         let titlePart = components.dropLast().joined(separator: " ")
         let durationSeconds = number * 60 // treat number as minutes
-
-        // Check if the number looks like it could be part of the title
-        // (single or two digit number at end of a word-like title)
         let numberStr = String(lastWord)
-        let couldBePartOfTitle = numberStr.count <= 3
+
+        // Only flag as ambiguous if the word before the number is "at" or "@"
+        let secondToLast = components.count >= 2 ? String(components[components.count - 2]).lowercased() : ""
+        let isAmbiguous = (secondToLast == "at" || secondToLast == "@")
 
         return ParseResult(
             title: titlePart,
             duration: durationSeconds,
-            ambiguousNumber: couldBePartOfTitle ? numberStr : nil
+            ambiguousNumber: isAmbiguous ? numberStr : nil
         )
     }
 

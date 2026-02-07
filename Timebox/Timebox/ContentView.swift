@@ -12,6 +12,14 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var showAddTask = false
 
+    // Shared increment selector state
+    @State private var selectedIncrementIndex = 1 // 0=1m, 1=5m, 2=15m
+    private let incrementOptions: [TimeInterval] = [60, 300, 900]
+
+    var currentIncrement: TimeInterval {
+        incrementOptions[selectedIncrementIndex]
+    }
+
     // Background color based on active task
     private var backgroundColor: Color {
         if timerVM.isRunning || timerVM.isOvertime,
@@ -32,6 +40,11 @@ struct ContentView: View {
                 // Top toolbar
                 toolbar
 
+                // Total / Finish At above timer (#13)
+                timeInfoHeader
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 4)
+
                 // Timer section
                 timerSection
                     .padding(.vertical, 12)
@@ -47,7 +60,9 @@ struct ContentView: View {
                     taskListVM: taskListVM,
                     timerVM: timerVM,
                     settings: settings,
-                    gestureHints: gestureHints
+                    gestureHints: gestureHints,
+                    selectedIncrementIndex: $selectedIncrementIndex,
+                    incrementOptions: incrementOptions
                 )
             }
         }
@@ -60,7 +75,6 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .iCloudDataDidChange)) { _ in
             // Reload data when iCloud sync occurs
-            // ViewModels will handle this in their load() methods
         }
         .sheet(isPresented: $showPresets) {
             PresetsView(presetVM: presetVM, taskListVM: taskListVM)
@@ -87,7 +101,10 @@ struct ContentView: View {
             // Undo/Redo
             HStack(spacing: 4) {
                 Button {
+                    let previousIndex = timerVM.currentTaskIndex
                     taskListVM.undo()
+                    // #9: If undo restored a previously-completed task, jump timer back
+                    timerVM.syncAfterUndo(taskListVM: taskListVM, previousIndex: previousIndex)
                 } label: {
                     Image(systemName: "arrow.uturn.backward")
                         .font(.system(size: 18))
@@ -95,7 +112,6 @@ struct ContentView: View {
                 }
                 .disabled(!taskListVM.undoManager.canUndo)
                 .overlay(alignment: .topTrailing) {
-                    // Undo badge
                     if taskListVM.undoManager.undoCount > 0 {
                         Circle()
                             .fill(Color.accentColor)
@@ -153,6 +169,37 @@ struct ContentView: View {
         .padding(.vertical, 10)
     }
 
+    // MARK: - Time Info Header (#13 — above timer)
+
+    private var timeInfoHeader: some View {
+        HStack {
+            if settings.showTotalListTime {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Total")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Text(taskListVM.formattedTotalTime(timerRemaining: timerVM.remainingTime, activeIndex: timerVM.currentTaskIndex, isTimerActive: timerVM.isRunning || timerVM.isOvertime))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .monospacedDigit()
+                }
+            }
+
+            Spacer()
+
+            if settings.showEstimatedFinish {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Finish at")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Text(taskListVM.estimatedFinishTime(timerRemaining: timerVM.remainingTime, activeIndex: timerVM.currentTaskIndex, isTimerActive: timerVM.isRunning || timerVM.isOvertime))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+
     // MARK: - Timer Section
 
     private var timerSection: some View {
@@ -162,6 +209,7 @@ struct ContentView: View {
                     remainingTime: timerVM.remainingTime,
                     totalDuration: timerVM.totalDuration,
                     isOvertime: timerVM.isOvertime,
+                    overtimeElapsed: timerVM.overtimeElapsed,
                     color: TaskColor.color(for: timerVM.currentColor)
                 )
                 .frame(width: 180, height: 180)
@@ -176,9 +224,9 @@ struct ContentView: View {
                 )
             }
 
-            // Timer adjustment buttons
+            // Timer adjustment buttons — use shared increment
             if timerVM.isRunning || timerVM.remainingTime > 0 || timerVM.isOvertime {
-                TimerAdjustmentButtons(timerVM: timerVM, settings: settings)
+                TimerAdjustmentButtons(timerVM: timerVM, increment: currentIncrement)
             }
 
             // Current task title

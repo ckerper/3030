@@ -25,10 +25,14 @@ struct TaskListModel: Codable, Equatable {
         start.addingTimeInterval(totalDuration)
     }
 
-    // Projected start/end times for each task
-    func projectedTimes(from start: Date = Date()) -> [(start: Date, end: Date)] {
+    // Projected start/end times for each task, skipping completed tasks.
+    // Completed tasks get nil. Active tasks accumulate from `start`.
+    func projectedTimes(from start: Date = Date()) -> [(start: Date, end: Date)?] {
         var current = start
         return tasks.map { task in
+            if task.isCompleted {
+                return nil
+            }
             let taskStart = current
             let taskEnd = current.addingTimeInterval(task.duration)
             current = taskEnd
