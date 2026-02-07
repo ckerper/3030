@@ -25,16 +25,13 @@ struct TimerDialView: View {
 
     var body: some View {
         ZStack {
-            // Full circle = spent time (near-white)
+            // Full circle = spent time (light tint)
             Circle()
                 .stroke(spentColor, style: StrokeStyle(lineWidth: 16))
                 .frame(width: dialSize, height: dialSize)
                 .shadow(color: spentColor.opacity(0.3), radius: 4)
 
-            // Remaining arc on top = near-black, shrinks counterclockwise (#4)
-            // trim(from: 0, to: fraction) starts at 12 o'clock and goes clockwise.
-            // We want remaining to start at 12 o'clock and shrink,
-            // so we draw from 0 to remainingFraction.
+            // Remaining arc on top = dark shade, shrinks counterclockwise
             Circle()
                 .trim(from: 0, to: remainingFraction)
                 .stroke(
@@ -63,9 +60,10 @@ struct TimerDialView: View {
                     taskIconView(task)
                 }
 
+                // Timer text: always primary (black/white), even in overtime
                 Text(timerVM.displayTime)
                     .font(.system(size: dialSize * 0.18, weight: .light, design: .monospaced))
-                    .foregroundColor(timerVM.isOvertime ? .red : .primary)
+                    .foregroundColor(.primary)
 
                 if timerVM.isOvertime {
                     Text("OVERTIME")
@@ -77,19 +75,19 @@ struct TimerDialView: View {
                     Text("PAUSED")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.primary.opacity(0.7))
                 } else if !timerVM.isRunning {
                     Text("TAP TO START")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.primary.opacity(0.7))
                 }
 
                 // Planned duration label
                 if timerVM.totalDuration > 0 {
                     Text("planned: \(TimeFormatting.format(timerVM.totalDuration))")
                         .font(.system(size: dialSize * 0.05))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.primary.opacity(0.6))
                 }
             }
         }

@@ -12,8 +12,7 @@ class AppSettings: ObservableObject, Codable {
     @Published var showPieTimer: Bool = false
     @Published var autoStartNextTask: Bool = false
     @Published var autoLoop: Bool = false
-    @Published var showTaskDuration: Bool = true
-    @Published var showPerTaskTimes: Bool = false
+    @Published var showPerTaskTimes: Bool = true
     @Published var showTotalListTime: Bool = true
     @Published var showEstimatedFinish: Bool = true
     @Published var keepScreenOn: Bool = false
@@ -34,7 +33,6 @@ class AppSettings: ObservableObject, Codable {
         case showPieTimer
         case autoStartNextTask
         case autoLoop
-        case showTaskDuration
         case showPerTaskTimes
         case showTotalListTime
         case showEstimatedFinish
@@ -51,8 +49,7 @@ class AppSettings: ObservableObject, Codable {
         showPieTimer = try container.decodeIfPresent(Bool.self, forKey: .showPieTimer) ?? false
         autoStartNextTask = try container.decodeIfPresent(Bool.self, forKey: .autoStartNextTask) ?? false
         autoLoop = try container.decodeIfPresent(Bool.self, forKey: .autoLoop) ?? false
-        showTaskDuration = try container.decodeIfPresent(Bool.self, forKey: .showTaskDuration) ?? true
-        showPerTaskTimes = try container.decodeIfPresent(Bool.self, forKey: .showPerTaskTimes) ?? false
+        showPerTaskTimes = try container.decodeIfPresent(Bool.self, forKey: .showPerTaskTimes) ?? true
         showTotalListTime = try container.decodeIfPresent(Bool.self, forKey: .showTotalListTime) ?? true
         showEstimatedFinish = try container.decodeIfPresent(Bool.self, forKey: .showEstimatedFinish) ?? true
         keepScreenOn = try container.decodeIfPresent(Bool.self, forKey: .keepScreenOn) ?? false
@@ -66,7 +63,6 @@ class AppSettings: ObservableObject, Codable {
         try container.encode(showPieTimer, forKey: .showPieTimer)
         try container.encode(autoStartNextTask, forKey: .autoStartNextTask)
         try container.encode(autoLoop, forKey: .autoLoop)
-        try container.encode(showTaskDuration, forKey: .showTaskDuration)
         try container.encode(showPerTaskTimes, forKey: .showPerTaskTimes)
         try container.encode(showTotalListTime, forKey: .showTotalListTime)
         try container.encode(showEstimatedFinish, forKey: .showEstimatedFinish)

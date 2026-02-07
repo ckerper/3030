@@ -3,6 +3,7 @@ import SwiftUI
 struct AddTaskView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var inputText: String = ""
+    @State private var selectedColor: String
     @State private var showBulkConfirmation = false
     @State private var bulkLines: [SmartTextParser.ParseResult] = []
     @State private var showAmbiguousPrompt = false
@@ -10,6 +11,13 @@ struct AddTaskView: View {
 
     let insertIndex: Int?
     let onAdd: ([TaskItem]) -> Void
+
+    init(insertIndex: Int?, lastColor: String? = nil, onAdd: @escaping ([TaskItem]) -> Void) {
+        self.insertIndex = insertIndex
+        self.onAdd = onAdd
+        // Auto-assign next color in cycle
+        _selectedColor = State(initialValue: TaskColor.nextColor(after: lastColor))
+    }
 
     var body: some View {
         NavigationView {
@@ -19,7 +27,7 @@ struct AddTaskView: View {
 
                 Text("Type a task name. Add a number at the end to set the duration in minutes.")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.primary.opacity(0.6))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
 
@@ -36,15 +44,51 @@ struct AddTaskView: View {
                         if let dur = preview.duration {
                             Text("Duration: \(TimeFormatting.format(dur))")
                                 .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.primary.opacity(0.6))
                         } else {
                             Text("Duration: 30:00 (default)")
                                 .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.primary.opacity(0.6))
                         }
                     }
                     .padding(.horizontal)
                 }
+
+                // Compact horizontal color picker
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Color")
+                        .font(.caption)
+                        .foregroundColor(.primary.opacity(0.6))
+                        .padding(.leading, 4)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(TaskColor.palette, id: \.name) { item in
+                                Circle()
+                                    .fill(item.color)
+                                    .frame(width: 32, height: 32)
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(Color.white, lineWidth: selectedColor == item.name ? 3 : 0)
+                                    )
+                                    .overlay(
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .opacity(selectedColor == item.name ? 1 : 0)
+                                    )
+                                    .shadow(color: item.color.opacity(0.4), radius: selectedColor == item.name ? 4 : 0)
+                                    .onTapGesture {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            selectedColor = item.name
+                                        }
+                                    }
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                }
+                .padding(.horizontal)
 
                 Spacer()
             }
@@ -67,14 +111,18 @@ struct AddTaskView: View {
                     let tasks = bulkLines.map { result in
                         TaskItem(
                             title: result.title,
-                            duration: result.duration ?? 1800
+                            duration: result.duration ?? 1800,
+                            colorName: selectedColor
                         )
                     }
                     onAdd(tasks)
                     dismiss()
                 }
                 Button("Create one task with long title") {
-                    let task = TaskItem(title: inputText.trimmingCharacters(in: .whitespacesAndNewlines))
+                    let task = TaskItem(
+                        title: inputText.trimmingCharacters(in: .whitespacesAndNewlines),
+                        colorName: selectedColor
+                    )
                     onAdd([task])
                     dismiss()
                 }
@@ -87,13 +135,17 @@ struct AddTaskView: View {
                     Button("Set \(number)-minute timer") {
                         let task = TaskItem(
                             title: result.title,
-                            duration: result.duration ?? 1800
+                            duration: result.duration ?? 1800,
+                            colorName: selectedColor
                         )
                         onAdd([task])
                         dismiss()
                     }
                     Button("Keep '\(number)' in title") {
-                        let task = TaskItem(title: inputText.trimmingCharacters(in: .whitespaces))
+                        let task = TaskItem(
+                            title: inputText.trimmingCharacters(in: .whitespaces),
+                            colorName: selectedColor
+                        )
                         onAdd([task])
                         dismiss()
                     }
@@ -111,7 +163,7 @@ struct AddTaskView: View {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Check for multi-line (bulk) input
-        let (lineCount, isMultiLine) = SmartTextParser.isMultiTask(text)
+        let (_, isMultiLine) = SmartTextParser.isMultiTask(text)
         if isMultiLine {
             bulkLines = SmartTextParser.parseMultiLine(text)
             showBulkConfirmation = true
@@ -122,14 +174,13 @@ struct AddTaskView: View {
         let result = SmartTextParser.parseLine(text)
 
         if let _ = result.ambiguousNumber {
-            // Ambiguous: could be part of title
             ambiguousResult = result
             showAmbiguousPrompt = true
         } else {
-            // Clear case
             let task = TaskItem(
                 title: result.title.isEmpty ? text : result.title,
-                duration: result.duration ?? 1800
+                duration: result.duration ?? 1800,
+                colorName: selectedColor
             )
             onAdd([task])
             dismiss()
@@ -138,5 +189,5 @@ struct AddTaskView: View {
 }
 
 #Preview {
-    AddTaskView(insertIndex: nil) { _ in }
+    AddTaskView(insertIndex: nil, lastColor: "blue") { _ in }
 }

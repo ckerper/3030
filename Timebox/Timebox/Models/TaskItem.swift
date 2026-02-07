@@ -92,8 +92,24 @@ struct TaskColor {
     /// Very deep shade of the color (for remaining portions of timers)
     static func darkShade(for name: String) -> Color {
         guard let rgb = rgbValues[name] else { return .black }
-        // Keep 25% of original color intensity
-        return Color(red: rgb.r * 0.25, green: rgb.g * 0.25, blue: rgb.b * 0.25)
+        // Keep 40% of original color intensity (enough hue to not look pure black)
+        return Color(red: rgb.r * 0.40, green: rgb.g * 0.40, blue: rgb.b * 0.40)
+    }
+
+    /// Adaptive full-screen background: light tint in light mode, dark shade in dark mode
+    static func adaptiveBackground(for name: String, isDark: Bool) -> Color {
+        guard let rgb = rgbValues[name] else {
+            return isDark ? Color(white: 0.15) : Color(white: 0.95)
+        }
+        if isDark {
+            return Color(red: rgb.r * 0.30, green: rgb.g * 0.30, blue: rgb.b * 0.30)
+        } else {
+            return Color(
+                red: rgb.r + 0.65 * (1.0 - rgb.r),
+                green: rgb.g + 0.65 * (1.0 - rgb.g),
+                blue: rgb.b + 0.65 * (1.0 - rgb.b)
+            )
+        }
     }
 
     /// Pick the next color that differs from the given previous color.
@@ -131,8 +147,30 @@ struct TimeFormatting {
 
     static func formatClockTime(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
+        formatter.dateFormat = "h:mma"
+        formatter.amSymbol = "am"
+        formatter.pmSymbol = "pm"
         return formatter.string(from: date)
+    }
+
+    /// Compact range: "2:05 – 2:15pm" (skip am/pm on start if same period)
+    static func formatCompactTimeRange(start: Date, end: Date) -> String {
+        let cal = Calendar.current
+        let startIsPM = cal.component(.hour, from: start) >= 12
+        let endIsPM = cal.component(.hour, from: end) >= 12
+        let samePeriod = startIsPM == endIsPM
+
+        let startFmt = DateFormatter()
+        startFmt.dateFormat = samePeriod ? "h:mm" : "h:mma"
+        startFmt.amSymbol = "am"
+        startFmt.pmSymbol = "pm"
+
+        let endFmt = DateFormatter()
+        endFmt.dateFormat = "h:mma"
+        endFmt.amSymbol = "am"
+        endFmt.pmSymbol = "pm"
+
+        return "\(startFmt.string(from: start)) – \(endFmt.string(from: end))"
     }
 }
 

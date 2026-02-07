@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct TimeboxApp: App {
+struct TimekerperApp: App {
     init() {
         // Start iCloud KVS sync on launch
         NSUbiquitousKeyValueStore.default.synchronize()

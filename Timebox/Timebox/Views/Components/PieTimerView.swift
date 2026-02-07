@@ -56,9 +56,10 @@ struct PieTimerView: View {
                         .fontWeight(.bold)
                         .foregroundColor(.red)
 
+                    // Overtime count stays primary for legibility
                     Text(TimeFormatting.formatOvertime(overtimeElapsed))
                         .font(.system(size: 20, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.red)
+                        .foregroundColor(.primary)
                 } else {
                     Text(TimeFormatting.format(remainingTime))
                         .font(.system(size: 20, weight: .semibold, design: .monospaced))

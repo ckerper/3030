@@ -3,14 +3,17 @@ import SwiftUI
 struct PresetsView: View {
     @ObservedObject var presetVM: PresetViewModel
     @ObservedObject var taskListVM: TaskListViewModel
-    @Environment(\.dismiss) private var dismiss
+    let onReturn: () -> Void
 
     @State private var showSavePreset = false
     @State private var presetName = ""
     @State private var selectedPreset: Preset?
     @State private var showLoadOptions = false
-    @State private var showEditPreset = false
     @State private var editingPreset: Preset?
+    @State private var showCreateNew = false
+    @State private var showAddTaskToPreset = false
+    @State private var newPresetName = ""
+    @State private var newPresetTasks: [TaskItem] = []
 
     var body: some View {
         NavigationView {
@@ -21,8 +24,18 @@ struct PresetsView: View {
                         showSavePreset = true
                     } label: {
                         Label("Save Current List as Preset", systemImage: "square.and.arrow.down")
+                            .foregroundColor(.primary)
                     }
                     .disabled(taskListVM.taskList.tasks.isEmpty)
+
+                    Button {
+                        newPresetName = ""
+                        newPresetTasks = []
+                        showCreateNew = true
+                    } label: {
+                        Label("Create New Preset", systemImage: "plus.circle")
+                            .foregroundColor(.primary)
+                    }
                 }
 
                 // Existing presets
@@ -31,13 +44,13 @@ struct PresetsView: View {
                         VStack(spacing: 12) {
                             Image(systemName: "tray")
                                 .font(.largeTitle)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.primary.opacity(0.3))
                             Text("No Presets Yet")
                                 .font(.headline)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.primary.opacity(0.5))
                             Text("Save your current task list as a preset to reuse it later.")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.primary.opacity(0.4))
                                 .multilineTextAlignment(.center)
                         }
                         .frame(maxWidth: .infinity)
@@ -57,8 +70,14 @@ struct PresetsView: View {
             .navigationTitle("Presets")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        onReturn()
+                    } label: {
+                        Image(systemName: "timer")
+                            .font(.system(size: 18))
+                            .foregroundColor(.primary)
+                    }
                 }
             }
             .alert("Save Preset", isPresented: $showSavePreset) {
@@ -82,17 +101,13 @@ struct PresetsView: View {
                 isPresented: $showLoadOptions,
                 presenting: selectedPreset
             ) { preset in
-                Button("Replace Current List") {
-                    taskListVM.loadPreset(preset, replace: true)
-                    dismiss()
+                Button("Load to Top") {
+                    taskListVM.loadPresetToTop(preset)
+                    onReturn()
                 }
-                Button("Append to Current List") {
-                    taskListVM.loadPreset(preset, replace: false)
-                    dismiss()
-                }
-                Button("Append (Remove Duplicates)") {
-                    taskListVM.loadPreset(preset, replace: false, removeDuplicates: true)
-                    dismiss()
+                Button("Load to Bottom") {
+                    taskListVM.loadPresetToBottom(preset)
+                    onReturn()
                 }
                 Button("Cancel", role: .cancel) {}
             } message: { preset in
@@ -101,6 +116,11 @@ struct PresetsView: View {
             .sheet(item: $editingPreset) { preset in
                 PresetEditView(preset: preset) { updated in
                     presetVM.updatePreset(updated)
+                }
+            }
+            .sheet(isPresented: $showCreateNew) {
+                PresetBuilderView { newPreset in
+                    presetVM.addPreset(newPreset)
                 }
             }
         }
@@ -122,7 +142,7 @@ struct PresetsView: View {
                     Label(preset.formattedTotalDuration, systemImage: "clock")
                 }
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(.primary.opacity(0.6))
 
                 // Color dots preview
                 HStack(spacing: 4) {
@@ -134,7 +154,7 @@ struct PresetsView: View {
                     if preset.tasks.count > 8 {
                         Text("+\(preset.tasks.count - 8)")
                             .font(.system(size: 10))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.primary.opacity(0.5))
                     }
                 }
             }
@@ -158,12 +178,14 @@ struct PresetsView: View {
     }
 }
 
-// MARK: - Preset Edit View
+// MARK: - Preset Edit View (name + task management)
 
 struct PresetEditView: View {
     @Environment(\.dismiss) private var dismiss
     @State var preset: Preset
     let onSave: (Preset) -> Void
+
+    @State private var showAddTask = false
 
     var body: some View {
         NavigationView {
@@ -183,7 +205,7 @@ struct PresetEditView: View {
                             Spacer()
                             Text(task.formattedDuration)
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.primary.opacity(0.6))
                         }
                     }
                     .onDelete { offsets in
@@ -192,6 +214,12 @@ struct PresetEditView: View {
                     .onMove { source, dest in
                         preset.tasks.move(fromOffsets: source, toOffset: dest)
                     }
+
+                    Button {
+                        showAddTask = true
+                    } label: {
+                        Label("Add Task", systemImage: "plus")
+                    }
                 }
 
                 Section {
@@ -199,7 +227,7 @@ struct PresetEditView: View {
                         Text("Total Duration")
                         Spacer()
                         Text(preset.formattedTotalDuration)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.primary.opacity(0.6))
                     }
                 }
             }
@@ -220,6 +248,108 @@ struct PresetEditView: View {
                     EditButton()
                 }
             }
+            .sheet(isPresented: $showAddTask) {
+                AddTaskView(
+                    insertIndex: nil,
+                    lastColor: preset.tasks.last?.colorName
+                ) { tasks in
+                    preset.tasks.append(contentsOf: tasks)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Preset Builder (create from scratch)
+
+struct PresetBuilderView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var tasks: [TaskItem] = []
+    @State private var showAddTask = false
+
+    let onSave: (Preset) -> Void
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Name") {
+                    TextField("Preset name", text: $name)
+                }
+
+                Section("Tasks (\(tasks.count))") {
+                    if tasks.isEmpty {
+                        Text("No tasks yet — use Add Task to build your preset.")
+                            .font(.caption)
+                            .foregroundColor(.primary.opacity(0.5))
+                    } else {
+                        ForEach(tasks) { task in
+                            HStack {
+                                Circle()
+                                    .fill(task.color)
+                                    .frame(width: 10, height: 10)
+                                Text(task.title)
+                                    .font(.body)
+                                Spacer()
+                                Text(task.formattedDuration)
+                                    .font(.caption)
+                                    .foregroundColor(.primary.opacity(0.6))
+                            }
+                        }
+                        .onDelete { offsets in
+                            tasks.remove(atOffsets: offsets)
+                        }
+                        .onMove { source, dest in
+                            tasks.move(fromOffsets: source, toOffset: dest)
+                        }
+                    }
+
+                    Button {
+                        showAddTask = true
+                    } label: {
+                        Label("Add Task", systemImage: "plus")
+                    }
+                }
+
+                if !tasks.isEmpty {
+                    Section {
+                        HStack {
+                            Text("Total Duration")
+                            Spacer()
+                            let total = tasks.reduce(0) { $0 + $1.duration }
+                            Text(TimeFormatting.format(total))
+                                .foregroundColor(.primary.opacity(0.6))
+                        }
+                    }
+                }
+            }
+            .navigationTitle("New Preset")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        let preset = Preset(name: name.isEmpty ? "Untitled" : name, tasks: tasks)
+                        onSave(preset)
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(tasks.isEmpty)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    EditButton()
+                }
+            }
+            .sheet(isPresented: $showAddTask) {
+                AddTaskView(
+                    insertIndex: nil,
+                    lastColor: tasks.last?.colorName
+                ) { newTasks in
+                    tasks.append(contentsOf: newTasks)
+                }
+            }
         }
     }
 }
@@ -227,6 +357,7 @@ struct PresetEditView: View {
 #Preview {
     PresetsView(
         presetVM: PresetViewModel(),
-        taskListVM: TaskListViewModel()
+        taskListVM: TaskListViewModel(),
+        onReturn: {}
     )
 }

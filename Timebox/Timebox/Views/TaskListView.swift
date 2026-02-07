@@ -61,7 +61,7 @@ struct TaskListView: View {
                     .padding(.vertical, 4)
                 }
 
-                // MARK: - Completed Tasks Section (#10)
+                // MARK: - Completed Tasks Section
                 if !taskListVM.completedTasks.isEmpty {
                     completedTasksSection
                 }
@@ -96,7 +96,7 @@ struct TaskListView: View {
             }
         }
         .sheet(isPresented: $showAddTask) {
-            AddTaskView(insertIndex: addTaskInsertIndex) { tasks in
+            AddTaskView(insertIndex: addTaskInsertIndex, lastColor: taskListVM.lastTaskColor) { tasks in
                 for (i, task) in tasks.enumerated() {
                     if let insertIdx = addTaskInsertIndex {
                         taskListVM.addTask(task, at: insertIdx + i)
@@ -178,7 +178,7 @@ struct TaskListView: View {
         HStack {
             Text("Adjust by:")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(.primary.opacity(0.7))
 
             Picker("Increment", selection: $selectedIncrementIndex) {
                 ForEach(0..<incrementLabels.count, id: \.self) { i in
@@ -196,11 +196,26 @@ struct TaskListView: View {
 
     private var pendingTasksSection: some View {
         let pending = taskListVM.pendingTasks
-        let projectedTimes = taskListVM.taskList.projectedTimes()
+        let projectedTimes = taskListVM.taskList.projectedTimes(
+            activeTaskId: timerVM.activeTaskId,
+            activeRemaining: timerVM.remainingTime,
+            savedRemainingTimes: timerVM.savedRemainingTimes
+        )
 
         return ForEach(Array(pending.enumerated()), id: \.element.id) { pendingIdx, task in
             let fullIdx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) ?? pendingIdx
             let times = fullIdx < projectedTimes.count ? projectedTimes[fullIdx] : nil
+
+            // Compute display duration: live remaining for active, saved for bumped, planned for others
+            let displayDuration: TimeInterval = {
+                if task.id == timerVM.activeTaskId {
+                    return timerVM.remainingTime
+                } else if let saved = timerVM.savedRemainingTimes[task.id] {
+                    return saved
+                } else {
+                    return task.duration
+                }
+            }()
 
             VStack(spacing: 0) {
                 if taskListVM.taskList.dividerIndex == fullIdx {
@@ -209,7 +224,7 @@ struct TaskListView: View {
                     }
                 }
 
-                taskRow(task: task, fullIndex: fullIdx, times: times)
+                taskRow(task: task, fullIndex: fullIdx, times: times, displayDuration: displayDuration)
             }
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
@@ -234,7 +249,7 @@ struct TaskListView: View {
         }
     }
 
-    // MARK: - Completed Tasks Section (#10)
+    // MARK: - Completed Tasks Section
 
     private var completedTasksSection: some View {
         Section {
@@ -274,7 +289,7 @@ struct TaskListView: View {
                         .fontWeight(.medium)
                     Spacer()
                 }
-                .foregroundColor(.secondary)
+                .foregroundColor(.primary.opacity(0.6))
                 .padding(.vertical, 4)
             }
             .buttonStyle(.plain)
@@ -283,17 +298,17 @@ struct TaskListView: View {
 
     // MARK: - Task Row (pending)
 
-    private func taskRow(task: TaskItem, fullIndex: Int, times: (start: Date, end: Date)?) -> some View {
+    private func taskRow(task: TaskItem, fullIndex: Int, times: (start: Date, end: Date)?, displayDuration: TimeInterval) -> some View {
         let isActiveTask = task.id == timerVM.activeTaskId
         return TaskRowView(
             task: task,
             index: fullIndex,
             isActive: isActiveTask && (timerVM.isRunning || timerVM.isOvertime || timerVM.remainingTime > 0),
             isCompleted: false,
-            showDuration: settings.showTaskDuration,
             showTimes: settings.showPerTaskTimes,
             projectedStart: times?.start,
             projectedEnd: times?.end,
+            displayDuration: displayDuration,
             plannedIncrement: currentIncrement,
             onAdjustDuration: { amount in
                 taskListVM.adjustDuration(taskId: task.id, by: amount)
@@ -325,7 +340,7 @@ struct TaskListView: View {
                 } label: {
                     Label("Clear Completed", systemImage: "checkmark.circle")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.primary.opacity(0.6))
                 }
                 .buttonStyle(.plain)
             }
@@ -364,7 +379,7 @@ struct TaskListView: View {
                     } else {
                         Image(systemName: task.icon)
                             .font(.system(size: 14))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.primary.opacity(0.5))
                     }
                 }
                 .frame(width: 24)
@@ -372,7 +387,7 @@ struct TaskListView: View {
 
             Text(task.title)
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(.primary.opacity(0.5))
                 .strikethrough()
                 .lineLimit(1)
 
@@ -380,16 +395,16 @@ struct TaskListView: View {
 
             Text(task.formattedDuration)
                 .font(.caption2)
-                .foregroundColor(.secondary.opacity(0.7))
+                .foregroundColor(.primary.opacity(0.4))
 
-            // Menu for completed tasks (#12)
+            // Menu for completed tasks
             Button {
                 actionMenuTask = task
                 showActionMenu = true
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 12))
-                    .foregroundColor(.secondary.opacity(0.5))
+                    .foregroundColor(.primary.opacity(0.4))
                     .frame(width: 24, height: 24)
             }
             .buttonStyle(.plain)

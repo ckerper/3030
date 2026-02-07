@@ -232,18 +232,26 @@ class TaskListViewModel: ObservableObject {
 
     // MARK: - Presets
 
-    func loadPreset(_ preset: Preset, replace: Bool = true, removeDuplicates: Bool = false) {
-        saveUndoState(description: "Load preset")
-        if replace {
-            taskList.tasks = preset.tasks
-            taskList.dividerIndex = nil
-        } else {
-            taskList.tasks.append(contentsOf: preset.tasks)
+    func loadPresetToTop(_ preset: Preset) {
+        saveUndoState(description: "Load preset to top")
+        let newTasks = preset.tasks.map { task in
+            var t = task
+            t.id = UUID()
+            t.isCompleted = false
+            return t
         }
-        if removeDuplicates {
-            taskList.removeDuplicates()
+        taskList.tasks.insert(contentsOf: newTasks, at: 0)
+    }
+
+    func loadPresetToBottom(_ preset: Preset) {
+        saveUndoState(description: "Load preset to bottom")
+        let newTasks = preset.tasks.map { task in
+            var t = task
+            t.id = UUID()
+            t.isCompleted = false
+            return t
         }
-        undoManager.clear()
+        taskList.tasks.append(contentsOf: newTasks)
     }
 
     func createPreset(name: String) -> Preset {

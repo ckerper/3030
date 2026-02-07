@@ -21,9 +21,6 @@ struct SettingsView: View {
                     Toggle("Pie Timer", isOn: $settings.showPieTimer)
                         .onChange(of: settings.showPieTimer) { _, _ in settings.save() }
 
-                    Toggle("Task Duration", isOn: $settings.showTaskDuration)
-                        .onChange(of: settings.showTaskDuration) { _, _ in settings.save() }
-
                     Toggle("Per-Task Start/End Times", isOn: $settings.showPerTaskTimes)
                         .onChange(of: settings.showPerTaskTimes) { _, _ in settings.save() }
 
@@ -53,7 +50,7 @@ struct SettingsView: View {
                         Text("Version")
                         Spacer()
                         Text("1.0")
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.primary.opacity(0.6))
                     }
                 }
             }

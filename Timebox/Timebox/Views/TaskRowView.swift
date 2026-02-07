@@ -5,10 +5,10 @@ struct TaskRowView: View {
     let index: Int
     let isActive: Bool
     let isCompleted: Bool
-    let showDuration: Bool
     let showTimes: Bool
     let projectedStart: Date?
     let projectedEnd: Date?
+    let displayDuration: TimeInterval
     let plannedIncrement: TimeInterval
 
     let onAdjustDuration: (TimeInterval) -> Void
@@ -30,27 +30,19 @@ struct TaskRowView: View {
                     .frame(width: 28)
             }
 
-            // Title and time info — tappable to edit (#7)
+            // Title and timestamps — tappable to edit
             VStack(alignment: .leading, spacing: 3) {
                 Text(task.title)
                     .font(.body)
                     .fontWeight(isActive ? .semibold : .regular)
-                    .foregroundColor(isCompleted ? .secondary : .primary)
+                    .foregroundColor(isCompleted ? .primary.opacity(0.5) : .primary)
                     .strikethrough(isCompleted)
                     .lineLimit(2)
 
-                HStack(spacing: 8) {
-                    if showDuration {
-                        Text(task.formattedDuration)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-
-                    if showTimes, let start = projectedStart, let end = projectedEnd {
-                        Text("\(TimeFormatting.formatClockTime(start)) – \(TimeFormatting.formatClockTime(end))")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
+                if showTimes, let start = projectedStart, let end = projectedEnd {
+                    Text(TimeFormatting.formatCompactTimeRange(start: start, end: end))
+                        .font(.caption)
+                        .foregroundColor(.primary.opacity(0.7))
                 }
             }
             .contentShape(Rectangle())
@@ -60,8 +52,8 @@ struct TaskRowView: View {
 
             Spacer()
 
-            // Inline controls for non-active, non-completed tasks
-            if !isActive && !isCompleted {
+            // Inline +/- duration controls for all non-completed tasks
+            if !isCompleted {
                 HStack(spacing: 4) {
                     Button {
                         onAdjustDuration(-plannedIncrement)
@@ -74,9 +66,10 @@ struct TaskRowView: View {
                     }
                     .buttonStyle(.plain)
 
-                    // Duration text — tappable to edit (#7)
-                    Text(task.formattedDuration)
+                    // Duration text — shows live remaining, tappable to edit
+                    Text(TimeFormatting.format(displayDuration))
                         .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(.primary)
                         .frame(minWidth: 48)
                         .multilineTextAlignment(.center)
                         .contentShape(Rectangle())
@@ -97,7 +90,7 @@ struct TaskRowView: View {
                 }
             }
 
-            // Complete button for non-completed tasks (#11)
+            // Complete button for non-completed tasks
             if !isCompleted {
                 Button(action: onComplete) {
                     Image(systemName: "checkmark.circle")
@@ -111,7 +104,7 @@ struct TaskRowView: View {
             Button(action: onMenu) {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 14))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.primary.opacity(0.5))
                     .frame(width: 28, height: 28)
             }
             .buttonStyle(.plain)
@@ -151,10 +144,10 @@ struct TaskRowView: View {
             index: 0,
             isActive: true,
             isCompleted: false,
-            showDuration: true,
-            showTimes: false,
-            projectedStart: nil,
-            projectedEnd: nil,
+            showTimes: true,
+            projectedStart: Date(),
+            projectedEnd: Date().addingTimeInterval(1800),
+            displayDuration: 1500,
             plannedIncrement: 300,
             onAdjustDuration: { _ in },
             onEdit: {},
@@ -166,10 +159,10 @@ struct TaskRowView: View {
             index: 1,
             isActive: false,
             isCompleted: false,
-            showDuration: true,
             showTimes: true,
             projectedStart: Date(),
             projectedEnd: Date().addingTimeInterval(3600),
+            displayDuration: 3600,
             plannedIncrement: 300,
             onAdjustDuration: { _ in },
             onEdit: {},
