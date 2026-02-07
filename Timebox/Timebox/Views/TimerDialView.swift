@@ -86,6 +86,13 @@ struct TimerDialView: View {
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
                 }
+
+                // Planned duration label
+                if timerVM.totalDuration > 0 {
+                    Text("planned: \(TimeFormatting.format(timerVM.totalDuration))")
+                        .font(.system(size: dialSize * 0.05))
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .contentShape(Circle())

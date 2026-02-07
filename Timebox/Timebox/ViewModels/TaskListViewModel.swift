@@ -193,6 +193,21 @@ class TaskListViewModel: ObservableObject {
         taskList.moveToTop(taskId: taskId)
     }
 
+    // MARK: - Bulk Clear
+
+    func clearAll() {
+        guard !taskList.tasks.isEmpty else { return }
+        saveUndoState(description: "Clear all")
+        taskList.tasks.removeAll()
+        taskList.dividerIndex = nil
+    }
+
+    func clearCompleted() {
+        guard taskList.tasks.contains(where: { $0.isCompleted }) else { return }
+        saveUndoState(description: "Clear completed")
+        taskList.tasks.removeAll { $0.isCompleted }
+    }
+
     // MARK: - Duration Adjustment
 
     func adjustDuration(taskId: UUID, by amount: TimeInterval) {

@@ -17,6 +17,8 @@ struct TaskListView: View {
     @State private var actionMenuTask: TaskItem?
     @State private var gestureHintText: String?
     @State private var showCompletedSection = false
+    @State private var showClearAllConfirm = false
+    @State private var showClearCompletedConfirm = false
 
     private let incrementLabels = ["1m", "5m", "15m"]
 
@@ -63,9 +65,30 @@ struct TaskListView: View {
                 if !taskListVM.completedTasks.isEmpty {
                     completedTasksSection
                 }
+
+                // MARK: - Clear Buttons
+                if !taskListVM.taskList.tasks.isEmpty {
+                    clearButtonsSection
+                }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+        }
+        .confirmationDialog("Clear All Tasks?", isPresented: $showClearAllConfirm) {
+            Button("Clear All", role: .destructive) {
+                taskListVM.clearAll()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will remove all \(taskListVM.taskList.tasks.count) tasks. You can undo this.")
+        }
+        .confirmationDialog("Clear Completed Tasks?", isPresented: $showClearCompletedConfirm) {
+            Button("Clear \(taskListVM.completedTasks.count) Completed", role: .destructive) {
+                taskListVM.clearCompleted()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will remove \(taskListVM.completedTasks.count) completed tasks. You can undo this.")
         }
         .sheet(item: $editingTask) { task in
             TaskEditView(task: task) { updated in
@@ -290,6 +313,37 @@ struct TaskListView: View {
                 showActionMenu = true
             }
         )
+    }
+
+    // MARK: - Clear Buttons
+
+    private var clearButtonsSection: some View {
+        HStack(spacing: 12) {
+            if !taskListVM.completedTasks.isEmpty {
+                Button {
+                    showClearCompletedConfirm = true
+                } label: {
+                    Label("Clear Completed", systemImage: "checkmark.circle")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer()
+
+            Button {
+                showClearAllConfirm = true
+            } label: {
+                Label("Clear All", systemImage: "trash")
+                    .font(.caption)
+                    .foregroundColor(.red.opacity(0.7))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 8)
+        .listRowSeparator(.hidden)
     }
 
     // MARK: - Completed Row

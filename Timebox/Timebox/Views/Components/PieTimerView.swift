@@ -86,6 +86,14 @@ struct PieTimerView: View {
                         .foregroundColor(.white)
                         .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1)
                 }
+
+                // Planned duration label
+                if totalDuration > 0 {
+                    Text("planned: \(TimeFormatting.format(totalDuration))")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.7))
+                        .shadow(color: .black.opacity(0.4), radius: 1, x: 0, y: 1)
+                }
             }
         }
     }
