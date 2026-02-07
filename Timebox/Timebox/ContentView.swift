@@ -63,14 +63,8 @@ struct ContentView: View {
                     // Empty state
                     emptyState
                 } else {
-                    // Total / Finish At above timer
-                    timeInfoHeader
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 4)
-
-                    // Timer section with +/- spread wide
+                    // Timer section with overlaid Total/Finish info
                     timerSection
-                        .padding(.vertical, 8)
 
                     // Current task title
                     if let task = timerVM.currentTask {
@@ -80,7 +74,7 @@ struct ContentView: View {
                             .foregroundColor(.primary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
-                            .padding(.bottom, 8)
+                            .padding(.bottom, 4)
                     }
 
                     // Task list
@@ -106,7 +100,7 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .iCloudDataDidChange)) { _ in }
         .sheet(isPresented: $showSettings) {
-            SettingsView(settings: settings)
+            SettingsView(settings: settings, taskListVM: taskListVM)
         }
         .sheet(isPresented: $showAddTask) {
             AddTaskView(insertIndex: nil, lastColor: taskListVM.lastTaskColor) { tasks in
@@ -199,43 +193,13 @@ struct ContentView: View {
         .padding(.vertical, 10)
     }
 
-    // MARK: - Time Info Header
+    // MARK: - Timer Section (Total/Finish overlaid, +/- buttons spread wide)
 
-    private var timeInfoHeader: some View {
-        HStack {
-            if settings.showTotalListTime {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Total")
-                        .font(.caption2)
-                        .foregroundColor(.primary.opacity(0.7))
-                    Text(taskListVM.formattedTotalTime(timerRemaining: timerVM.remainingTime, activeIndex: timerVM.currentTaskIndex, isTimerActive: timerVM.isRunning || timerVM.isOvertime))
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                        .monospacedDigit()
-                }
-            }
-
-            Spacer()
-
-            if settings.showEstimatedFinish {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("Finish at")
-                        .font(.caption2)
-                        .foregroundColor(.primary.opacity(0.7))
-                    Text(taskListVM.estimatedFinishTime(timerRemaining: timerVM.remainingTime, activeIndex: timerVM.currentTaskIndex, isTimerActive: timerVM.isRunning || timerVM.isOvertime))
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                }
-            }
-        }
-    }
-
-    // MARK: - Timer Section (+/- buttons spread wider)
+    private let dialSize: CGFloat = 220
 
     private var timerSection: some View {
         ZStack {
+            // Timer dial/pie — both 220pt
             if settings.showPieTimer {
                 PieTimerView(
                     remainingTime: timerVM.remainingTime,
@@ -244,7 +208,7 @@ struct ContentView: View {
                     overtimeElapsed: timerVM.overtimeElapsed,
                     colorName: timerVM.currentColor
                 )
-                .frame(width: 180, height: 180)
+                .frame(width: dialSize, height: dialSize)
                 .onTapGesture {
                     timerVM.startOrPause()
                 }
@@ -252,11 +216,11 @@ struct ContentView: View {
                 TimerDialView(
                     timerVM: timerVM,
                     settings: settings,
-                    dialSize: 220
+                    dialSize: dialSize
                 )
             }
 
-            // +/- buttons spread to screen edges
+            // +/- buttons spread to screen edges, vertically centered on dial
             if timerVM.isRunning || timerVM.remainingTime > 0 || timerVM.isOvertime {
                 HStack {
                     Button {
@@ -277,11 +241,45 @@ struct ContentView: View {
                             .foregroundColor(.primary.opacity(0.5))
                     }
                 }
+                .padding(.horizontal, 16)
+            }
+
+            // Total / Finish At overlaid at top corners of timer area
+            VStack {
+                HStack(alignment: .top) {
+                    if settings.showTotalListTime {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Total")
+                                .font(.caption2)
+                                .foregroundColor(.primary.opacity(0.7))
+                            Text(taskListVM.formattedTotalTime(timerRemaining: timerVM.remainingTime, activeIndex: timerVM.currentTaskIndex, isTimerActive: timerVM.isRunning || timerVM.isOvertime))
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                                .monospacedDigit()
+                        }
+                    }
+
+                    Spacer()
+
+                    if settings.showEstimatedFinish {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("Finish at")
+                                .font(.caption2)
+                                .foregroundColor(.primary.opacity(0.7))
+                            Text(taskListVM.estimatedFinishTime(timerRemaining: timerVM.remainingTime, activeIndex: timerVM.currentTaskIndex, isTimerActive: timerVM.isRunning || timerVM.isOvertime))
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                        }
+                    }
+                }
                 .padding(.horizontal, 20)
-                .offset(y: (settings.showPieTimer ? 180 : 220) * 0.38)
+
+                Spacer()
             }
         }
-        .frame(height: settings.showPieTimer ? 210 : 250)
+        .frame(height: dialSize + 30)
     }
 }
 

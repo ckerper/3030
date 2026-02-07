@@ -312,6 +312,10 @@ struct TaskListView: View {
             plannedIncrement: currentIncrement,
             onAdjustDuration: { amount in
                 taskListVM.adjustDuration(taskId: task.id, by: amount)
+                // Also adjust the live timer if this is the active task
+                if task.id == timerVM.activeTaskId {
+                    timerVM.adjustTime(by: amount)
+                }
             },
             onEdit: {
                 editingTask = task

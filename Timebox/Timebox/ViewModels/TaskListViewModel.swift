@@ -218,6 +218,15 @@ class TaskListViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Reset Colors
+
+    func resetTaskColors() {
+        saveUndoState(description: "Reset task colors")
+        for i in taskList.tasks.indices {
+            taskList.tasks[i].colorName = TaskColor.paletteNames[i % TaskColor.paletteNames.count]
+        }
+    }
+
     // MARK: - Divider
 
     func setDivider(at index: Int?) {

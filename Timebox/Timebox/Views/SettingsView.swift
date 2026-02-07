@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var settings: AppSettings
+    var taskListVM: TaskListViewModel?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -29,6 +30,12 @@ struct SettingsView: View {
 
                     Toggle("Estimated Finish Time", isOn: $settings.showEstimatedFinish)
                         .onChange(of: settings.showEstimatedFinish) { _, _ in settings.save() }
+
+                    if let vm = taskListVM, !vm.taskList.tasks.isEmpty {
+                        Button("Reset Task Colors") {
+                            vm.resetTaskColors()
+                        }
+                    }
                 }
 
                 // Appearance
@@ -66,5 +73,5 @@ struct SettingsView: View {
 }
 
 #Preview {
-    SettingsView(settings: AppSettings())
+    SettingsView(settings: AppSettings(), taskListVM: nil)
 }

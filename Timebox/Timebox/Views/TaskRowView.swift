@@ -70,8 +70,8 @@ struct TaskRowView: View {
                     Text(TimeFormatting.format(displayDuration))
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.primary)
-                        .frame(minWidth: 48)
-                        .multilineTextAlignment(.center)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                         .contentShape(Rectangle())
                         .onTapGesture {
                             onEdit()

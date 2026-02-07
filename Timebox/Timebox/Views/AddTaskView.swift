@@ -108,12 +108,15 @@ struct AddTaskView: View {
             }
             .alert("Multiple Tasks Detected", isPresented: $showBulkConfirmation) {
                 Button("Create \(bulkLines.count) tasks") {
-                    let tasks = bulkLines.map { result in
-                        TaskItem(
+                    var currentColor = selectedColor
+                    let tasks = bulkLines.map { result -> TaskItem in
+                        let task = TaskItem(
                             title: result.title,
                             duration: result.duration ?? 1800,
-                            colorName: selectedColor
+                            colorName: currentColor
                         )
+                        currentColor = TaskColor.nextColor(after: currentColor)
+                        return task
                     }
                     onAdd(tasks)
                     dismiss()
