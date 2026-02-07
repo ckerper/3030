@@ -170,7 +170,7 @@ class TimerViewModel: ObservableObject {
         isOvertime = false
         activeTaskId = nil
         timerStartedAt = nil
-        savedRemainingTimes.removeAll()
+        // Don't clear savedRemainingTimes — they may be needed if undo/redo brings tasks back
     }
 
     // MARK: - Task Completion
@@ -179,8 +179,12 @@ class TimerViewModel: ObservableObject {
         guard let taskList = taskList, let id = activeTaskId else { return }
         guard let idx = taskList.taskList.tasks.firstIndex(where: { $0.id == id }) else { return }
 
-        // Clear any saved time for this task
-        savedRemainingTimes.removeValue(forKey: id)
+        // Save remaining time so undo can restore it
+        if !isOvertime && remainingTime > 0 {
+            savedRemainingTimes[id] = remainingTime
+        } else {
+            savedRemainingTimes.removeValue(forKey: id)
+        }
 
         // Mark completed
         taskList.completeTask(at: idx)

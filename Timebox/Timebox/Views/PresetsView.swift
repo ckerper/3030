@@ -11,9 +11,6 @@ struct PresetsView: View {
     @State private var showLoadOptions = false
     @State private var editingPreset: Preset?
     @State private var showCreateNew = false
-    @State private var showAddTaskToPreset = false
-    @State private var newPresetName = ""
-    @State private var newPresetTasks: [TaskItem] = []
 
     var body: some View {
         NavigationView {
@@ -29,8 +26,6 @@ struct PresetsView: View {
                     .disabled(taskListVM.taskList.tasks.isEmpty)
 
                     Button {
-                        newPresetName = ""
-                        newPresetTasks = []
                         showCreateNew = true
                     } label: {
                         Label("Create New Preset", systemImage: "plus.circle")
@@ -178,7 +173,7 @@ struct PresetsView: View {
     }
 }
 
-// MARK: - Preset Edit View (name + task management)
+// MARK: - Preset Edit View (with inline editing and undo/redo)
 
 struct PresetEditView: View {
     @Environment(\.dismiss) private var dismiss
@@ -186,6 +181,31 @@ struct PresetEditView: View {
     let onSave: (Preset) -> Void
 
     @State private var showAddTask = false
+    @State private var editingTask: TaskItem?
+
+    // Local undo/redo for task list within this editor
+    @State private var undoStack: [[TaskItem]] = []
+    @State private var redoStack: [[TaskItem]] = []
+
+    private var canUndo: Bool { !undoStack.isEmpty }
+    private var canRedo: Bool { !redoStack.isEmpty }
+
+    private func pushUndo() {
+        undoStack.append(preset.tasks)
+        redoStack.removeAll()
+    }
+
+    private func performUndo() {
+        guard let previous = undoStack.popLast() else { return }
+        redoStack.append(preset.tasks)
+        preset.tasks = previous
+    }
+
+    private func performRedo() {
+        guard let next = redoStack.popLast() else { return }
+        undoStack.append(preset.tasks)
+        preset.tasks = next
+    }
 
     var body: some View {
         NavigationView {
@@ -196,22 +216,32 @@ struct PresetEditView: View {
 
                 Section("Tasks (\(preset.tasks.count))") {
                     ForEach(preset.tasks) { task in
-                        HStack {
-                            Circle()
-                                .fill(task.color)
-                                .frame(width: 10, height: 10)
-                            Text(task.title)
-                                .font(.body)
-                            Spacer()
-                            Text(task.formattedDuration)
-                                .font(.caption)
-                                .foregroundColor(.primary.opacity(0.6))
+                        Button {
+                            editingTask = task
+                        } label: {
+                            HStack {
+                                Circle()
+                                    .fill(task.color)
+                                    .frame(width: 10, height: 10)
+                                Text(task.title)
+                                    .font(.body)
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                Text(task.formattedDuration)
+                                    .font(.caption)
+                                    .foregroundColor(.primary.opacity(0.6))
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2)
+                                    .foregroundColor(.primary.opacity(0.3))
+                            }
                         }
                     }
                     .onDelete { offsets in
+                        pushUndo()
                         preset.tasks.remove(atOffsets: offsets)
                     }
                     .onMove { source, dest in
+                        pushUndo()
                         preset.tasks.move(fromOffsets: source, toOffset: dest)
                     }
 
@@ -237,6 +267,29 @@ struct PresetEditView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 12) {
+                        Button {
+                            performUndo()
+                        } label: {
+                            Image(systemName: "arrow.uturn.backward")
+                                .font(.system(size: 16))
+                                .foregroundColor(canUndo ? .primary : .primary.opacity(0.25))
+                        }
+                        .disabled(!canUndo)
+
+                        Button {
+                            performRedo()
+                        } label: {
+                            Image(systemName: "arrow.uturn.forward")
+                                .font(.system(size: 16))
+                                .foregroundColor(canRedo ? .primary : .primary.opacity(0.25))
+                        }
+                        .disabled(!canRedo)
+                    }
+                }
+
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         onSave(preset)
@@ -244,29 +297,60 @@ struct PresetEditView: View {
                     }
                     .fontWeight(.semibold)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    EditButton()
-                }
             }
             .sheet(isPresented: $showAddTask) {
                 AddTaskView(
                     insertIndex: nil,
                     lastColor: preset.tasks.last?.colorName
                 ) { tasks in
+                    pushUndo()
                     preset.tasks.append(contentsOf: tasks)
+                }
+            }
+            .sheet(item: $editingTask) { task in
+                TaskEditView(task: task) { updated in
+                    pushUndo()
+                    if let idx = preset.tasks.firstIndex(where: { $0.id == updated.id }) {
+                        preset.tasks[idx] = updated
+                    }
                 }
             }
         }
     }
 }
 
-// MARK: - Preset Builder (create from scratch)
+// MARK: - Preset Builder (create from scratch, with undo/redo)
 
 struct PresetBuilderView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var tasks: [TaskItem] = []
     @State private var showAddTask = false
+    @State private var editingTask: TaskItem?
+
+    // Local undo/redo
+    @State private var undoStack: [[TaskItem]] = []
+    @State private var redoStack: [[TaskItem]] = []
+
+    private var canUndo: Bool { !undoStack.isEmpty }
+    private var canRedo: Bool { !redoStack.isEmpty }
+
+    private func pushUndo() {
+        undoStack.append(tasks)
+        redoStack.removeAll()
+    }
+
+    private func performUndo() {
+        guard let previous = undoStack.popLast() else { return }
+        redoStack.append(tasks)
+        tasks = previous
+    }
+
+    private func performRedo() {
+        guard let next = redoStack.popLast() else { return }
+        undoStack.append(tasks)
+        tasks = next
+    }
 
     let onSave: (Preset) -> Void
 
@@ -284,22 +368,32 @@ struct PresetBuilderView: View {
                             .foregroundColor(.primary.opacity(0.5))
                     } else {
                         ForEach(tasks) { task in
-                            HStack {
-                                Circle()
-                                    .fill(task.color)
-                                    .frame(width: 10, height: 10)
-                                Text(task.title)
-                                    .font(.body)
-                                Spacer()
-                                Text(task.formattedDuration)
-                                    .font(.caption)
-                                    .foregroundColor(.primary.opacity(0.6))
+                            Button {
+                                editingTask = task
+                            } label: {
+                                HStack {
+                                    Circle()
+                                        .fill(task.color)
+                                        .frame(width: 10, height: 10)
+                                    Text(task.title)
+                                        .font(.body)
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Text(task.formattedDuration)
+                                        .font(.caption)
+                                        .foregroundColor(.primary.opacity(0.6))
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption2)
+                                        .foregroundColor(.primary.opacity(0.3))
+                                }
                             }
                         }
                         .onDelete { offsets in
+                            pushUndo()
                             tasks.remove(atOffsets: offsets)
                         }
                         .onMove { source, dest in
+                            pushUndo()
                             tasks.move(fromOffsets: source, toOffset: dest)
                         }
                     }
@@ -329,6 +423,29 @@ struct PresetBuilderView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
+
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 12) {
+                        Button {
+                            performUndo()
+                        } label: {
+                            Image(systemName: "arrow.uturn.backward")
+                                .font(.system(size: 16))
+                                .foregroundColor(canUndo ? .primary : .primary.opacity(0.25))
+                        }
+                        .disabled(!canUndo)
+
+                        Button {
+                            performRedo()
+                        } label: {
+                            Image(systemName: "arrow.uturn.forward")
+                                .font(.system(size: 16))
+                                .foregroundColor(canRedo ? .primary : .primary.opacity(0.25))
+                        }
+                        .disabled(!canRedo)
+                    }
+                }
+
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         let preset = Preset(name: name.isEmpty ? "Untitled" : name, tasks: tasks)
@@ -338,16 +455,22 @@ struct PresetBuilderView: View {
                     .fontWeight(.semibold)
                     .disabled(tasks.isEmpty)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    EditButton()
-                }
             }
             .sheet(isPresented: $showAddTask) {
                 AddTaskView(
                     insertIndex: nil,
                     lastColor: tasks.last?.colorName
                 ) { newTasks in
+                    pushUndo()
                     tasks.append(contentsOf: newTasks)
+                }
+            }
+            .sheet(item: $editingTask) { task in
+                TaskEditView(task: task) { updated in
+                    pushUndo()
+                    if let idx = tasks.firstIndex(where: { $0.id == updated.id }) {
+                        tasks[idx] = updated
+                    }
                 }
             }
         }
