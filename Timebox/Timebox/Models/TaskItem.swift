@@ -9,13 +9,19 @@ struct TaskItem: Identifiable, Codable, Equatable, Hashable {
     var icon: String // SF Symbol name or emoji
     var isCompleted: Bool
 
+    // Calendar mode: actual time tracking
+    var actualStartTime: Date?
+    var actualEndTime: Date?
+
     init(
         id: UUID = UUID(),
         title: String = "New Task",
         duration: TimeInterval = 1800, // 30 minutes default
         colorName: String = "blue",
         icon: String = "",
-        isCompleted: Bool = false
+        isCompleted: Bool = false,
+        actualStartTime: Date? = nil,
+        actualEndTime: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -23,6 +29,8 @@ struct TaskItem: Identifiable, Codable, Equatable, Hashable {
         self.colorName = colorName
         self.icon = icon
         self.isCompleted = isCompleted
+        self.actualStartTime = actualStartTime
+        self.actualEndTime = actualEndTime
     }
 
     var color: Color {

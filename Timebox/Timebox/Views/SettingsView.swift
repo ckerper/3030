@@ -8,28 +8,52 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form {
+                // App Mode
+                Section("Mode") {
+                    Picker("App Mode", selection: $settings.appMode) {
+                        ForEach(AppSettings.AppModeSetting.allCases, id: \.self) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: settings.appMode) { _, _ in settings.save() }
+                }
+
                 // Timer
                 Section("Timer") {
                     Toggle("Auto Start Next Task", isOn: $settings.autoStartNextTask)
                         .onChange(of: settings.autoStartNextTask) { _, _ in settings.save() }
 
-                    Toggle("Auto-Loop", isOn: $settings.autoLoop)
-                        .onChange(of: settings.autoLoop) { _, _ in settings.save() }
+                    if settings.appMode == .list {
+                        Toggle("Auto-Loop", isOn: $settings.autoLoop)
+                            .onChange(of: settings.autoLoop) { _, _ in settings.save() }
+                    }
                 }
 
                 // Display
                 Section("Display") {
-                    Toggle("Pie Timer", isOn: $settings.showPieTimer)
-                        .onChange(of: settings.showPieTimer) { _, _ in settings.save() }
+                    if settings.appMode == .list {
+                        Toggle("Pie Timer", isOn: $settings.showPieTimer)
+                            .onChange(of: settings.showPieTimer) { _, _ in settings.save() }
 
-                    Toggle("Per-Task Start/End Times", isOn: $settings.showPerTaskTimes)
-                        .onChange(of: settings.showPerTaskTimes) { _, _ in settings.save() }
+                        Toggle("Per-Task Start/End Times", isOn: $settings.showPerTaskTimes)
+                            .onChange(of: settings.showPerTaskTimes) { _, _ in settings.save() }
 
-                    Toggle("Total List Time", isOn: $settings.showTotalListTime)
-                        .onChange(of: settings.showTotalListTime) { _, _ in settings.save() }
+                        Toggle("Total List Time", isOn: $settings.showTotalListTime)
+                            .onChange(of: settings.showTotalListTime) { _, _ in settings.save() }
 
-                    Toggle("Estimated Finish Time", isOn: $settings.showEstimatedFinish)
-                        .onChange(of: settings.showEstimatedFinish) { _, _ in settings.save() }
+                        Toggle("Estimated Finish Time", isOn: $settings.showEstimatedFinish)
+                            .onChange(of: settings.showEstimatedFinish) { _, _ in settings.save() }
+                    }
+
+                    if settings.appMode == .calendar {
+                        Picker("Timeline Zoom", selection: $settings.calendarZoom) {
+                            ForEach(AppSettings.CalendarZoomSetting.allCases, id: \.self) { zoom in
+                                Text(zoom.rawValue).tag(zoom)
+                            }
+                        }
+                        .onChange(of: settings.calendarZoom) { _, _ in settings.save() }
+                    }
 
                     if let vm = taskListVM, !vm.taskList.tasks.isEmpty {
                         Button("Reset Task Colors") {

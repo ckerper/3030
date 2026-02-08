@@ -4,6 +4,7 @@ struct ContentView: View {
     @StateObject private var taskListVM = TaskListViewModel()
     @StateObject private var timerVM = TimerViewModel()
     @StateObject private var presetVM = PresetViewModel()
+    @StateObject private var dayPlanVM = DayPlanViewModel()
     @StateObject private var settings = AppSettings.load()
     @StateObject private var gestureHints = GestureHintManager()
     @StateObject private var cloudKit = CloudKitService.shared
@@ -34,6 +35,20 @@ struct ContentView: View {
 
     var body: some View {
         Group {
+            switch settings.appMode {
+            case .list:
+                listModeContent
+            case .calendar:
+                calendarModeContent
+            }
+        }
+        .preferredColorScheme(settings.colorScheme)
+    }
+
+    // MARK: - List Mode (original UI)
+
+    private var listModeContent: some View {
+        Group {
             if showingPresets {
                 PresetsView(
                     presetVM: presetVM,
@@ -44,10 +59,44 @@ struct ContentView: View {
                 mainContent
             }
         }
-        .preferredColorScheme(settings.colorScheme)
     }
 
-    // MARK: - Main Timer Content
+    // MARK: - Calendar Mode
+
+    private var calendarModeContent: some View {
+        CalendarModeView(
+            dayPlanVM: dayPlanVM,
+            timerVM: timerVM,
+            settings: settings,
+            gestureHints: gestureHints
+        )
+        .onAppear {
+            timerVM.configureForCalendar(dayPlanVM: dayPlanVM, settings: settings)
+            dayPlanVM.timerVM = timerVM
+            if !dayPlanVM.dayPlan.tasks.isEmpty {
+                timerVM.syncToFirstPendingCalendar()
+            }
+        }
+        .onChange(of: dayPlanVM.dayPlan.tasks) { _, _ in
+            timerVM.syncToFirstPendingCalendar()
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            switch newPhase {
+            case .background:
+                timerVM.persistState()
+            case .inactive:
+                if oldPhase == .active {
+                    timerVM.persistState()
+                }
+            case .active:
+                dayPlanVM.recomputeTimeline()
+            @unknown default:
+                break
+            }
+        }
+    }
+
+    // MARK: - Main Timer Content (List mode)
 
     private var mainContent: some View {
         ZStack {
