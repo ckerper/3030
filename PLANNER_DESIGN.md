@@ -285,6 +285,5 @@ If a timer is left running overnight, tasks just keep pushing forward. The app d
 - **Recurring events**: Repeat rules on events (daily, specific weekdays) that auto-populate when a new DayPlan is created. Priority: high (avoids re-entering the same meeting 5x/week).
 - **Calendar import**: Pull events from the iPhone Calendar app instead of manual entry.
 - **Retroactive time editing**: Manually adjust start/end times of completed items for timesheet accuracy.
-- **Day-clock dial**: A circular 24-hour (or waking-hours) dial showing the full day with colored arcs for tasks and events. Planner mode equivalent of the simple mode dial.
-- **End-of-day goal**: Optional target time ("done by 11 PM") with visual indicator of whether the plan fits.
+- **Day-clock dial**: A circular 24-hour (or waking-hours or working-hours) dial showing the full day with colored arcs for tasks and events. Planner mode equivalent of the simple mode dial.
 - **Multi-day view**: See/plan more than just today.
