@@ -16,7 +16,10 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    .onChange(of: settings.appMode) { _, _ in settings.save() }
+                    .onChange(of: settings.appMode) { _, _ in
+                        settings.save()
+                        dismiss()
+                    }
                 }
 
                 // Timer

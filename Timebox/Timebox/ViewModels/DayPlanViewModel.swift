@@ -13,6 +13,12 @@ class DayPlanViewModel: ObservableObject {
     private var timelineUpdateTimer: AnyCancellable?
 
     weak var timerVM: TimerViewModel?
+    weak var sharedTaskListVM: TaskListViewModel?
+
+    /// Push task changes to the shared TaskListViewModel so both modes stay in sync
+    private func syncTasksToSharedList() {
+        sharedTaskListVM?.taskList.tasks = dayPlan.tasks
+    }
 
     init() {
         self.dayPlan = DayPlan()
@@ -91,6 +97,7 @@ class DayPlanViewModel: ObservableObject {
         }
         dayPlan.tasks.append(newTask)
         recomputeTimeline()
+        syncTasksToSharedList()
     }
 
     func addTasks(_ tasks: [TaskItem]) {
@@ -105,6 +112,7 @@ class DayPlanViewModel: ObservableObject {
             dayPlan.tasks.append(newTask)
         }
         recomputeTimeline()
+        syncTasksToSharedList()
     }
 
     func removeTask(id: UUID) {
@@ -112,6 +120,7 @@ class DayPlanViewModel: ObservableObject {
         saveUndoState(description: "Delete task")
         dayPlan.tasks.remove(at: index)
         recomputeTimeline()
+        syncTasksToSharedList()
     }
 
     func updateTask(_ task: TaskItem) {
@@ -120,6 +129,7 @@ class DayPlanViewModel: ObservableObject {
             dayPlan.tasks[index] = task
         }
         recomputeTimeline()
+        syncTasksToSharedList()
     }
 
     func completeTask(id: UUID) {
@@ -128,6 +138,7 @@ class DayPlanViewModel: ObservableObject {
         dayPlan.tasks[index].isCompleted = true
         dayPlan.tasks[index].actualEndTime = Date()
         recomputeTimeline()
+        syncTasksToSharedList()
     }
 
     func uncompleteTask(id: UUID) {
@@ -137,12 +148,14 @@ class DayPlanViewModel: ObservableObject {
             dayPlan.tasks[index].actualEndTime = nil
         }
         recomputeTimeline()
+        syncTasksToSharedList()
     }
 
     func moveTask(from source: IndexSet, to destination: Int) {
         saveUndoState(description: "Reorder tasks")
         dayPlan.tasks.move(fromOffsets: source, toOffset: destination)
         recomputeTimeline()
+        syncTasksToSharedList()
     }
 
     func movePendingTask(from source: IndexSet, to destination: Int) {
@@ -172,6 +185,7 @@ class DayPlanViewModel: ObservableObject {
         }
         dayPlan.tasks = fullTasks
         recomputeTimeline()
+        syncTasksToSharedList()
     }
 
     func clearAllTasks() {
@@ -179,6 +193,7 @@ class DayPlanViewModel: ObservableObject {
         saveUndoState(description: "Clear all tasks")
         dayPlan.tasks.removeAll()
         recomputeTimeline()
+        syncTasksToSharedList()
     }
 
     func clearCompletedTasks() {
@@ -186,6 +201,7 @@ class DayPlanViewModel: ObservableObject {
         saveUndoState(description: "Clear completed tasks")
         dayPlan.tasks.removeAll { $0.isCompleted }
         recomputeTimeline()
+        syncTasksToSharedList()
     }
 
     func adjustDuration(taskId: UUID, by amount: TimeInterval) {
@@ -195,6 +211,7 @@ class DayPlanViewModel: ObservableObject {
             dayPlan.tasks[index].duration = newDuration
         }
         recomputeTimeline()
+        syncTasksToSharedList()
     }
 
     // MARK: - Event Management
@@ -296,7 +313,8 @@ class DayPlanViewModel: ObservableObject {
             tasks: dayPlan.tasks,
             dividerIndex: nil,
             description: description,
-            timerState: timerVM?.captureTimerSnapshot()
+            timerState: timerVM?.captureTimerSnapshot(),
+            events: dayPlan.events
         )
     }
 
@@ -305,10 +323,15 @@ class DayPlanViewModel: ObservableObject {
         if let snapshot = undoManager.undo(
             currentTasks: dayPlan.tasks,
             currentDivider: nil,
-            currentTimerState: currentTimerState
+            currentTimerState: currentTimerState,
+            currentEvents: dayPlan.events
         ) {
             dayPlan.tasks = snapshot.tasks
+            if let events = snapshot.events {
+                dayPlan.events = events
+            }
             recomputeTimeline()
+            syncTasksToSharedList()
             return snapshot.timerState
         }
         return nil
@@ -319,10 +342,15 @@ class DayPlanViewModel: ObservableObject {
         if let snapshot = undoManager.redo(
             currentTasks: dayPlan.tasks,
             currentDivider: nil,
-            currentTimerState: currentTimerState
+            currentTimerState: currentTimerState,
+            currentEvents: dayPlan.events
         ) {
             dayPlan.tasks = snapshot.tasks
+            if let events = snapshot.events {
+                dayPlan.events = events
+            }
             recomputeTimeline()
+            syncTasksToSharedList()
             return snapshot.timerState
         }
         return nil

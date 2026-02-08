@@ -24,6 +24,22 @@ struct SchedulingEngine {
             var fragmentIndex = 0
 
             while remainingDuration > 0 {
+                // Check if cursor is within an ongoing event (started before cursor, hasn't ended)
+                if let ongoingIdx = remainingEvents.firstIndex(where: {
+                    $0.startTime <= cursor && cursor < $0.startTime.addingTimeInterval($0.plannedDuration)
+                }) {
+                    let event = remainingEvents[ongoingIdx]
+                    let eventEnd = event.startTime.addingTimeInterval(event.plannedDuration)
+                    slots.append(.event(
+                        eventId: event.id,
+                        startTime: event.startTime,
+                        endTime: eventEnd
+                    ))
+                    cursor = eventEnd
+                    remainingEvents.remove(at: ongoingIdx)
+                    continue
+                }
+
                 // Find next event that starts after cursor
                 let nextEventIndex = remainingEvents.firstIndex { $0.startTime > cursor }
 
@@ -107,19 +123,21 @@ struct SchedulingEngine {
 
         // Insert any remaining events that fall after all tasks
         for event in remainingEvents {
-            if event.startTime > cursor {
-                slots.append(.freeTime(
-                    startTime: cursor,
-                    endTime: event.startTime
-                ))
-            }
             let eventEnd = event.startTime.addingTimeInterval(event.plannedDuration)
-            slots.append(.event(
-                eventId: event.id,
-                startTime: event.startTime,
-                endTime: eventEnd
-            ))
-            cursor = eventEnd
+            if cursor < eventEnd {
+                if event.startTime > cursor {
+                    slots.append(.freeTime(
+                        startTime: cursor,
+                        endTime: event.startTime
+                    ))
+                }
+                slots.append(.event(
+                    eventId: event.id,
+                    startTime: event.startTime,
+                    endTime: eventEnd
+                ))
+                cursor = eventEnd
+            }
         }
 
         return slots

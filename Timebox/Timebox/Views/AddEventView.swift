@@ -35,12 +35,62 @@ struct AddEventView: View {
                 }
 
                 Section("Duration") {
-                    Picker("Duration", selection: $durationMinutes) {
-                        ForEach(durationOptions, id: \.self) { mins in
-                            Text(formatDuration(mins)).tag(mins)
+                    // Quick select buttons
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(durationOptions, id: \.self) { mins in
+                                Button {
+                                    durationMinutes = mins
+                                } label: {
+                                    Text(formatDuration(mins))
+                                        .font(.caption)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(durationMinutes == mins ? Color.accentColor : Color(.systemGray5))
+                                        )
+                                        .foregroundColor(durationMinutes == mins ? .white : .primary)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
-                    .pickerStyle(.segmented)
+
+                    // Precise hour/minute pickers
+                    HStack {
+                        Text("Hours")
+                        Picker("Hours", selection: Binding(
+                            get: { Int(durationMinutes) / 60 },
+                            set: { h in
+                                let m = Int(durationMinutes) % 60
+                                durationMinutes = max(5, Double(h * 60 + m))
+                            }
+                        )) {
+                            ForEach(0..<13, id: \.self) { Text("\($0)").tag($0) }
+                        }
+                        .pickerStyle(.wheel)
+                        .frame(width: 80, height: 100)
+                        .clipped()
+
+                        Text("Min")
+                        Picker("Minutes", selection: Binding(
+                            get: { (Int(durationMinutes) % 60 / 5) * 5 },
+                            set: { m in
+                                let h = Int(durationMinutes) / 60
+                                durationMinutes = max(5, Double(h * 60 + m))
+                            }
+                        )) {
+                            ForEach(Array(stride(from: 0, to: 60, by: 5)), id: \.self) { Text("\($0)").tag($0) }
+                        }
+                        .pickerStyle(.wheel)
+                        .frame(width: 80, height: 100)
+                        .clipped()
+                    }
+
+                    Text("Duration: \(formatDuration(durationMinutes))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
 
                 Section("Color") {

@@ -16,6 +16,7 @@ class TaskUndoManager: ObservableObject {
         let dividerIndex: Int?
         let description: String
         var timerState: TimerSnapshot?
+        var events: [Event]?
     }
 
     @Published private(set) var undoStack: [Snapshot] = []
@@ -26,24 +27,24 @@ class TaskUndoManager: ObservableObject {
 
     var undoCount: Int { undoStack.count }
 
-    func saveState(tasks: [TaskItem], dividerIndex: Int?, description: String, timerState: TimerSnapshot? = nil) {
-        let snapshot = Snapshot(tasks: tasks, dividerIndex: dividerIndex, description: description, timerState: timerState)
+    func saveState(tasks: [TaskItem], dividerIndex: Int?, description: String, timerState: TimerSnapshot? = nil, events: [Event]? = nil) {
+        let snapshot = Snapshot(tasks: tasks, dividerIndex: dividerIndex, description: description, timerState: timerState, events: events)
         undoStack.append(snapshot)
         redoStack.removeAll() // new action clears redo stack
     }
 
-    func undo(currentTasks: [TaskItem], currentDivider: Int?, currentTimerState: TimerSnapshot? = nil) -> Snapshot? {
+    func undo(currentTasks: [TaskItem], currentDivider: Int?, currentTimerState: TimerSnapshot? = nil, currentEvents: [Event]? = nil) -> Snapshot? {
         guard let previous = undoStack.popLast() else { return nil }
-        // Save current state to redo stack (including timer state)
-        let current = Snapshot(tasks: currentTasks, dividerIndex: currentDivider, description: "redo", timerState: currentTimerState)
+        // Save current state to redo stack (including timer state and events)
+        let current = Snapshot(tasks: currentTasks, dividerIndex: currentDivider, description: "redo", timerState: currentTimerState, events: currentEvents)
         redoStack.append(current)
         return previous
     }
 
-    func redo(currentTasks: [TaskItem], currentDivider: Int?, currentTimerState: TimerSnapshot? = nil) -> Snapshot? {
+    func redo(currentTasks: [TaskItem], currentDivider: Int?, currentTimerState: TimerSnapshot? = nil, currentEvents: [Event]? = nil) -> Snapshot? {
         guard let next = redoStack.popLast() else { return nil }
-        // Save current state to undo stack (including timer state)
-        let current = Snapshot(tasks: currentTasks, dividerIndex: currentDivider, description: "undo", timerState: currentTimerState)
+        // Save current state to undo stack (including timer state and events)
+        let current = Snapshot(tasks: currentTasks, dividerIndex: currentDivider, description: "undo", timerState: currentTimerState, events: currentEvents)
         undoStack.append(current)
         return next
     }

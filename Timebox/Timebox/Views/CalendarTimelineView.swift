@@ -15,28 +15,14 @@ struct CalendarTimelineView: View {
         settings.calendarZoom.pointsPerHour
     }
 
-    /// The range of hours to display (6 AM to midnight, or earlier/later if events warrant)
-    private var displayStartHour: Int {
-        let cal = Calendar.current
-        let earliest = dayPlanVM.timelineSlots.first?.startTime ?? Date()
-        let hour = cal.component(.hour, from: earliest)
-        return max(0, min(hour, 6))
-    }
+    /// Total hours displayed: midnight yesterday to midnight tomorrow = 48 hours
+    private let totalHours: Int = 48
 
-    private var displayEndHour: Int {
-        let cal = Calendar.current
-        let latest = dayPlanVM.timelineSlots.last?.endTime ?? Date()
-        let hour = cal.component(.hour, from: latest)
-        return min(24, max(hour + 1, 22))
-    }
-
-    private var totalHours: Int {
-        displayEndHour - displayStartHour
-    }
-
+    /// The start of the timeline: midnight yesterday
     private var dayStartDate: Date {
         let cal = Calendar.current
-        return cal.date(bySettingHour: displayStartHour, minute: 0, second: 0, of: Date()) ?? Date()
+        let todayMidnight = cal.startOfDay(for: Date())
+        return cal.date(byAdding: .day, value: -1, to: todayMidnight) ?? todayMidnight
     }
 
     var body: some View {
@@ -60,9 +46,9 @@ struct CalendarTimelineView: View {
                 .id("timelineContent")
             }
             .onAppear {
-                // Scroll to current time area
+                // Scroll to current time, positioned 1/3 from the top of the visible area
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    proxy.scrollTo("currentTime", anchor: .center)
+                    proxy.scrollTo("currentTime", anchor: UnitPoint(x: 0.5, y: 0.33))
                 }
             }
         }
@@ -72,18 +58,32 @@ struct CalendarTimelineView: View {
 
     private var hourGrid: some View {
         ForEach(0..<totalHours, id: \.self) { hourOffset in
-            let hour = displayStartHour + hourOffset
+            let hourOfDay = hourOffset % 24
             let y = CGFloat(hourOffset) * pointsPerHour
 
             ZStack(alignment: .topLeading) {
-                // Hour line
-                Rectangle()
-                    .fill(Color.primary.opacity(0.1))
-                    .frame(height: 0.5)
-                    .offset(x: -52, y: y)
+                // Midnight separator (stronger line + day label)
+                if hourOfDay == 0 {
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.3))
+                        .frame(height: 1)
+                        .offset(x: -52, y: y)
+
+                    Text(dayLabel(for: hourOffset))
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary.opacity(0.5))
+                        .offset(x: 0, y: y + 2)
+                } else {
+                    // Regular hour line
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.1))
+                        .frame(height: 0.5)
+                        .offset(x: -52, y: y)
+                }
 
                 // Hour label
-                Text(formatHour(hour))
+                Text(formatHour(hourOfDay))
                     .font(.caption2)
                     .foregroundColor(.secondary)
                     .frame(width: 44, alignment: .trailing)
@@ -268,9 +268,18 @@ struct CalendarTimelineView: View {
         return CGFloat(hours) * pointsPerHour
     }
 
-    private func formatHour(_ hour: Int) -> String {
-        let h = hour % 12 == 0 ? 12 : hour % 12
-        let period = hour < 12 ? "am" : "pm"
+    private func formatHour(_ hourOfDay: Int) -> String {
+        let h = hourOfDay % 12 == 0 ? 12 : hourOfDay % 12
+        let period = hourOfDay < 12 ? "am" : "pm"
         return "\(h)\(period)"
+    }
+
+    /// Returns "Yesterday", "Today", or "Tomorrow" for midnight separators
+    private func dayLabel(for hourOffset: Int) -> String {
+        switch hourOffset {
+        case 0: return "Yesterday"
+        case 24: return "Today"
+        default: return "Tomorrow"
+        }
     }
 }
