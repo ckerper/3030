@@ -396,7 +396,11 @@ struct TaskListView: View {
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color(.tertiarySystemGroupedBackground))
+                .fill(task.color.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(task.color.opacity(0.15), lineWidth: 1)
         )
         .opacity(0.8)
     }
