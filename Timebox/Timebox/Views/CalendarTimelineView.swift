@@ -15,8 +15,8 @@ struct CalendarTimelineView: View {
         settings.calendarZoom.pointsPerHour
     }
 
-    /// Total hours displayed: midnight yesterday to midnight tomorrow = 48 hours
-    private let totalHours: Int = 48
+    /// Total hours displayed: midnight yesterday through end of day tomorrow = 72 hours
+    private let totalHours: Int = 72
 
     /// The start of the timeline: midnight yesterday
     private var dayStartDate: Date {
@@ -25,10 +25,21 @@ struct CalendarTimelineView: View {
         return cal.date(byAdding: .day, value: -1, to: todayMidnight) ?? todayMidnight
     }
 
+    /// Total height of the timeline content in points
+    private var totalHeight: CGFloat {
+        CGFloat(totalHours) * pointsPerHour
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: true) {
                 ZStack(alignment: .topLeading) {
+                    // Invisible spacer to establish the full scrollable content height.
+                    // Without this, .offset() views don't contribute to layout size
+                    // and the ScrollView clips/bounces incorrectly.
+                    Color.clear
+                        .frame(height: totalHeight)
+
                     // Hour grid lines and labels
                     hourGrid
 
@@ -40,10 +51,8 @@ struct CalendarTimelineView: View {
                     // Current time indicator
                     currentTimeIndicator
                 }
-                .frame(height: CGFloat(totalHours) * pointsPerHour)
                 .padding(.leading, 52)
                 .padding(.trailing, 8)
-                .id("timelineContent")
             }
             .onAppear {
                 // Scroll to current time, positioned 1/3 from the top of the visible area
@@ -274,12 +283,13 @@ struct CalendarTimelineView: View {
         return "\(h)\(period)"
     }
 
-    /// Returns "Yesterday", "Today", or "Tomorrow" for midnight separators
+    /// Returns day label for midnight separators
     private func dayLabel(for hourOffset: Int) -> String {
         switch hourOffset {
         case 0: return "Yesterday"
         case 24: return "Today"
-        default: return "Tomorrow"
+        case 48: return "Tomorrow"
+        default: return ""
         }
     }
 }
