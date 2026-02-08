@@ -7,8 +7,6 @@ struct PresetsView: View {
 
     @State private var showSavePreset = false
     @State private var presetName = ""
-    @State private var selectedPreset: Preset?
-    @State private var showLoadOptions = false
     @State private var editingPreset: Preset?
     @State private var showCreateNew = false
 
@@ -91,23 +89,6 @@ struct PresetsView: View {
             } message: {
                 Text("Enter a name for this preset.")
             }
-            .confirmationDialog(
-                "Load Preset",
-                isPresented: $showLoadOptions,
-                presenting: selectedPreset
-            ) { preset in
-                Button("Load to Top") {
-                    taskListVM.loadPresetToTop(preset)
-                    onReturn()
-                }
-                Button("Load to Bottom") {
-                    taskListVM.loadPresetToBottom(preset)
-                    onReturn()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: { preset in
-                Text("How would you like to load \"\(preset.name)\"?")
-            }
             .sheet(item: $editingPreset) { preset in
                 PresetEditView(preset: preset) { updated in
                     presetVM.updatePreset(updated)
@@ -122,10 +103,7 @@ struct PresetsView: View {
     }
 
     private func presetRow(_ preset: Preset) -> some View {
-        Button {
-            selectedPreset = preset
-            showLoadOptions = true
-        } label: {
+        HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(preset.name)
                     .font(.body)
@@ -154,6 +132,40 @@ struct PresetsView: View {
                 }
             }
             .padding(.vertical, 4)
+
+            Spacer()
+
+            HStack(spacing: 8) {
+                Button {
+                    taskListVM.loadPresetToTop(preset)
+                    onReturn()
+                } label: {
+                    Text("Top")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.accentColor.opacity(0.15))
+                        .foregroundColor(.accentColor)
+                        .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    taskListVM.loadPresetToBottom(preset)
+                    onReturn()
+                } label: {
+                    Text("Bottom")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.accentColor.opacity(0.15))
+                        .foregroundColor(.accentColor)
+                        .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+            }
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
