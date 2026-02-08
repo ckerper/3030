@@ -100,12 +100,13 @@ struct TaskRowView: View {
                 .buttonStyle(.plain)
             }
 
-            // Menu button
+            // Menu button — large hit area for reliable tapping
             Button(action: onMenu) {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 14))
                     .foregroundColor(.primary.opacity(0.5))
-                    .frame(width: 28, height: 28)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }

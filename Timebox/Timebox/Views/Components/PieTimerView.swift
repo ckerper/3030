@@ -10,6 +10,9 @@ struct PieTimerView: View {
     let overtimeElapsed: TimeInterval
     let colorName: String
 
+    @Environment(\.colorScheme) var colorScheme
+    private var isDark: Bool { colorScheme == .dark }
+
     // Scale: how many seconds per full circle
     private let fullCircleSeconds: TimeInterval = 3600
 
@@ -24,7 +27,7 @@ struct PieTimerView: View {
         ZStack {
             // Background circle — light tint of the task color
             Circle()
-                .fill(TaskColor.lightTint(for: colorName))
+                .fill(TaskColor.lightTint(for: colorName, isDark: isDark))
 
             // Remaining time wedge — dark shade, from 12 o'clock clockwise
             if !isOvertime && remainingSweep > 0 {
@@ -32,7 +35,7 @@ struct PieTimerView: View {
                     startAngle: .degrees(-90),
                     endAngle: .degrees(-90 + remainingSweep)
                 )
-                .fill(TaskColor.darkShade(for: colorName))
+                .fill(TaskColor.darkShade(for: colorName, isDark: isDark))
             }
 
             // Overtime: full red ring pulse

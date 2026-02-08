@@ -3,17 +3,20 @@ import SwiftUI
 struct TimerDialView: View {
     @ObservedObject var timerVM: TimerViewModel
     @ObservedObject var settings: AppSettings
+    @Environment(\.colorScheme) var colorScheme
 
     let dialSize: CGFloat
+
+    private var isDark: Bool { colorScheme == .dark }
 
     // High-contrast tint/shade of the task color
     private var spentColor: Color {
         if timerVM.isOvertime { return Color.red }
-        return TaskColor.lightTint(for: timerVM.currentColor)
+        return TaskColor.lightTint(for: timerVM.currentColor, isDark: isDark)
     }
 
     private var remainingColor: Color {
-        TaskColor.darkShade(for: timerVM.currentColor)
+        TaskColor.darkShade(for: timerVM.currentColor, isDark: isDark)
     }
 
     // How much of the circle is "remaining" (1.0 = full, 0.0 = empty)

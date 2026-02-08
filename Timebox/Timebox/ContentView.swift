@@ -9,6 +9,7 @@ struct ContentView: View {
     @StateObject private var cloudKit = CloudKitService.shared
 
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.scenePhase) var scenePhase
 
     @State private var showingPresets = false
     @State private var showSettings = false
@@ -92,11 +93,25 @@ struct ContentView: View {
         .onAppear {
             timerVM.configure(taskList: taskListVM, settings: settings)
             if !taskListVM.taskList.tasks.isEmpty {
-                timerVM.loadCurrentTask()
+                timerVM.restoreState()
+                // If no persisted state was restored, just load the first task
+                if timerVM.activeTaskId == nil {
+                    timerVM.loadCurrentTask()
+                }
             }
         }
         .onChange(of: taskListVM.taskList.tasks) { _, _ in
             timerVM.syncToFirstPending()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background || newPhase == .inactive {
+                timerVM.persistState()
+            } else if newPhase == .active {
+                // Re-sync on return to foreground (timer may have been counting)
+                if timerVM.activeTaskId != nil {
+                    timerVM.restoreState()
+                }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .iCloudDataDidChange)) { _ in }
         .sheet(isPresented: $showSettings) {

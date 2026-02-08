@@ -110,26 +110,20 @@ struct TaskListView: View {
         .confirmationDialog(
             actionMenuTask?.title ?? "Task",
             isPresented: $showActionMenu,
+            titleVisibility: .visible,
             presenting: actionMenuTask
         ) { task in
             Button("Edit") {
                 gestureHints.recordMenuAction("edit")
                 editingTask = task
             }
-            Button("Move to Top") {
-                gestureHints.recordMenuAction("moveToTop")
-                taskListVM.moveToTop(taskId: task.id)
-            }
-            Button("Move to Bottom") {
-                gestureHints.recordMenuAction("moveToBottom")
-                taskListVM.moveToBottom(taskId: task.id)
-            }
             if !task.isCompleted {
-                Button("Complete") {
+                Button("Reset Duration") {
                     if task.id == timerVM.activeTaskId {
-                        timerVM.completeCurrentTask()
-                    } else if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
-                        taskListVM.completeTask(at: idx)
+                        timerVM.resetCurrentTaskDuration()
+                    } else {
+                        // For non-active tasks, remove any saved remaining time
+                        timerVM.savedRemainingTimes.removeValue(forKey: task.id)
                     }
                 }
                 Button("Insert Divider Here") {
@@ -144,9 +138,9 @@ struct TaskListView: View {
                     }
                 }
             }
-            Button("Delete", role: .destructive) {
-                gestureHints.recordMenuAction("delete")
-                taskListVM.removeTask(id: task.id)
+            Button("Move to Bottom") {
+                gestureHints.recordMenuAction("moveToBottom")
+                taskListVM.moveToBottom(taskId: task.id)
             }
             Button("Cancel", role: .cancel) {}
         }
@@ -237,11 +231,11 @@ struct TaskListView: View {
             }
             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                 Button {
-                    taskListVM.moveToBottom(taskId: task.id)
+                    taskListVM.moveToTop(taskId: task.id)
                 } label: {
-                    Label("Move to Bottom", systemImage: "arrow.down.to.line")
+                    Label("Move to Top", systemImage: "arrow.up.to.line")
                 }
-                .tint(.orange)
+                .tint(.blue)
             }
         }
         .onMove { source, destination in

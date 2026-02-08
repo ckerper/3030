@@ -34,6 +34,7 @@ struct SettingsView: View {
                     if let vm = taskListVM, !vm.taskList.tasks.isEmpty {
                         Button("Reset Task Colors") {
                             vm.resetTaskColors()
+                            dismiss()
                         }
                     }
                 }

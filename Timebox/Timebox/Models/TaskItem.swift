@@ -79,8 +79,12 @@ struct TaskColor {
     ]
 
     /// Very pale tint of the color (for spent/background portions of timers)
-    static func lightTint(for name: String) -> Color {
-        guard let rgb = rgbValues[name] else { return .white }
+    static func lightTint(for name: String, isDark: Bool = false) -> Color {
+        guard let rgb = rgbValues[name] else { return isDark ? Color(white: 0.3) : .white }
+        if isDark {
+            // Dark mode: dimmed tint so it's not a bright circle against dark background
+            return Color(red: rgb.r * 0.45, green: rgb.g * 0.45, blue: rgb.b * 0.45)
+        }
         // Lerp 85% toward white
         return Color(
             red: rgb.r + 0.85 * (1.0 - rgb.r),
@@ -90,8 +94,12 @@ struct TaskColor {
     }
 
     /// Very deep shade of the color (for remaining portions of timers)
-    static func darkShade(for name: String) -> Color {
+    static func darkShade(for name: String, isDark: Bool = false) -> Color {
         guard let rgb = rgbValues[name] else { return .black }
+        if isDark {
+            // Dark mode: even deeper to visibly contrast against the dark background
+            return Color(red: rgb.r * 0.20, green: rgb.g * 0.20, blue: rgb.b * 0.20)
+        }
         // Keep 40% of original color intensity (enough hue to not look pure black)
         return Color(red: rgb.r * 0.40, green: rgb.g * 0.40, blue: rgb.b * 0.40)
     }

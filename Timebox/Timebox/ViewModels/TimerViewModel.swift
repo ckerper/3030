@@ -23,6 +23,16 @@ class TimerViewModel: ObservableObject {
     private var taskList: TaskListViewModel?
     private var settings: AppSettings?
 
+    // MARK: - Persistence Keys
+    private let kTimerActiveTaskId = "timer_activeTaskId"
+    private let kTimerRemainingTime = "timer_remainingTime"
+    private let kTimerTotalDuration = "timer_totalDuration"
+    private let kTimerIsRunning = "timer_isRunning"
+    private let kTimerIsOvertime = "timer_isOvertime"
+    private let kTimerOvertimeElapsed = "timer_overtimeElapsed"
+    private let kTimerLastSaveDate = "timer_lastSaveDate"
+    private let kTimerSavedRemainingTimes = "timer_savedRemainingTimes"
+
     // MARK: - Derived
 
     /// The index of the active task in the full task list.
@@ -144,6 +154,7 @@ class TimerViewModel: ObservableObject {
 
         isRunning = true
         timerStartedAt = Date()
+        persistState()
 
         if settings?.keepScreenOn == true {
             UIApplication.shared.isIdleTimerDisabled = true
@@ -161,6 +172,7 @@ class TimerViewModel: ObservableObject {
         timer?.cancel()
         timer = nil
         UIApplication.shared.isIdleTimerDisabled = false
+        persistState()
     }
 
     func stop() {
@@ -171,6 +183,7 @@ class TimerViewModel: ObservableObject {
         activeTaskId = nil
         timerStartedAt = nil
         // Don't clear savedRemainingTimes — they may be needed if undo/redo brings tasks back
+        clearPersistedState()
     }
 
     // MARK: - Task Completion
@@ -191,6 +204,7 @@ class TimerViewModel: ObservableObject {
 
         // Advance to next first pending
         advanceToNext()
+        persistState()
     }
 
     func advanceToNext() {
@@ -262,11 +276,31 @@ class TimerViewModel: ObservableObject {
                 isOvertime = false
                 remainingTime = amount
                 overtimeElapsed = 0
+                // Add to planned duration so it reflects the added time
+                totalDuration += amount
             }
         } else {
             remainingTime = max(0, remainingTime + amount)
-            totalDuration = max(totalDuration, remainingTime)
+            // Accumulate additions into planned total instead of just taking max
+            if amount > 0 {
+                totalDuration += amount
+            } else {
+                // When subtracting, don't let planned go below remaining
+                totalDuration = max(totalDuration, remainingTime)
+            }
         }
+        persistState()
+    }
+
+    // MARK: - Reset Duration
+
+    func resetCurrentTaskDuration() {
+        guard let task = currentTask else { return }
+        remainingTime = task.duration
+        totalDuration = task.duration
+        overtimeElapsed = 0
+        isOvertime = false
+        persistState()
     }
 
     // MARK: - Undo Sync
@@ -275,6 +309,107 @@ class TimerViewModel: ObservableObject {
         // After undo, the first pending task may have changed.
         // Just re-sync to whatever is now first.
         syncToFirstPending()
+    }
+
+    // MARK: - State Persistence (survive app close/reopen)
+
+    func persistState() {
+        let defaults = UserDefaults.standard
+        if let id = activeTaskId {
+            defaults.set(id.uuidString, forKey: kTimerActiveTaskId)
+        } else {
+            defaults.removeObject(forKey: kTimerActiveTaskId)
+        }
+        defaults.set(remainingTime, forKey: kTimerRemainingTime)
+        defaults.set(totalDuration, forKey: kTimerTotalDuration)
+        defaults.set(isRunning, forKey: kTimerIsRunning)
+        defaults.set(isOvertime, forKey: kTimerIsOvertime)
+        defaults.set(overtimeElapsed, forKey: kTimerOvertimeElapsed)
+        defaults.set(Date().timeIntervalSince1970, forKey: kTimerLastSaveDate)
+
+        // Save savedRemainingTimes as [String: Double]
+        let encoded = savedRemainingTimes.reduce(into: [String: Double]()) { dict, pair in
+            dict[pair.key.uuidString] = pair.value
+        }
+        defaults.set(encoded, forKey: kTimerSavedRemainingTimes)
+    }
+
+    func restoreState() {
+        let defaults = UserDefaults.standard
+
+        // Restore savedRemainingTimes
+        if let encoded = defaults.dictionary(forKey: kTimerSavedRemainingTimes) as? [String: Double] {
+            savedRemainingTimes = encoded.reduce(into: [UUID: TimeInterval]()) { dict, pair in
+                if let uuid = UUID(uuidString: pair.key) {
+                    dict[uuid] = pair.value
+                }
+            }
+        }
+
+        guard let idString = defaults.string(forKey: kTimerActiveTaskId),
+              let savedId = UUID(uuidString: idString) else {
+            return
+        }
+
+        let savedRemaining = defaults.double(forKey: kTimerRemainingTime)
+        let savedTotal = defaults.double(forKey: kTimerTotalDuration)
+        let wasRunning = defaults.bool(forKey: kTimerIsRunning)
+        let wasOvertime = defaults.bool(forKey: kTimerIsOvertime)
+        let savedOvertime = defaults.double(forKey: kTimerOvertimeElapsed)
+        let savedTimestamp = defaults.double(forKey: kTimerLastSaveDate)
+
+        // Verify this task still exists and is pending
+        guard let taskList = taskList,
+              taskList.taskList.tasks.contains(where: { $0.id == savedId && !$0.isCompleted }) else {
+            return
+        }
+
+        activeTaskId = savedId
+        totalDuration = savedTotal
+
+        if wasRunning {
+            // Calculate how much real time elapsed since we saved
+            let elapsed = Date().timeIntervalSince1970 - savedTimestamp
+
+            if wasOvertime {
+                // Was already in overtime — add elapsed to overtime counter
+                isOvertime = true
+                overtimeElapsed = savedOvertime + elapsed
+                remainingTime = 0
+            } else {
+                // Was counting down — subtract elapsed from remaining
+                let newRemaining = savedRemaining - elapsed
+                if newRemaining <= 0 {
+                    // Crossed into overtime while app was closed
+                    isOvertime = true
+                    overtimeElapsed = abs(newRemaining)
+                    remainingTime = 0
+                } else {
+                    isOvertime = false
+                    remainingTime = newRemaining
+                    overtimeElapsed = 0
+                }
+            }
+            // Resume the timer
+            start()
+        } else {
+            // Was paused — restore exact state
+            remainingTime = savedRemaining
+            isOvertime = wasOvertime
+            overtimeElapsed = savedOvertime
+        }
+    }
+
+    func clearPersistedState() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: kTimerActiveTaskId)
+        defaults.removeObject(forKey: kTimerRemainingTime)
+        defaults.removeObject(forKey: kTimerTotalDuration)
+        defaults.removeObject(forKey: kTimerIsRunning)
+        defaults.removeObject(forKey: kTimerIsOvertime)
+        defaults.removeObject(forKey: kTimerOvertimeElapsed)
+        defaults.removeObject(forKey: kTimerLastSaveDate)
+        defaults.removeObject(forKey: kTimerSavedRemainingTimes)
     }
 
     // MARK: - Private
