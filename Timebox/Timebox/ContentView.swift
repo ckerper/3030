@@ -43,6 +43,17 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(settings.colorScheme)
+        .onAppear {
+            dayPlanVM.sharedTaskListVM = taskListVM
+        }
+        .onChange(of: settings.appMode) { oldMode, newMode in
+            dayPlanVM.sharedTaskListVM = taskListVM
+            if newMode == .calendar {
+                dayPlanVM.importTasks(from: taskListVM.taskList.tasks)
+            } else if newMode == .list {
+                taskListVM.taskList.tasks = dayPlanVM.exportTasks()
+            }
+        }
     }
 
     // MARK: - List Mode (original UI)
@@ -71,6 +82,11 @@ struct ContentView: View {
             gestureHints: gestureHints
         )
         .onAppear {
+            dayPlanVM.sharedTaskListVM = taskListVM
+            // Sync tasks from list mode into calendar mode
+            if !taskListVM.taskList.tasks.isEmpty {
+                dayPlanVM.importTasks(from: taskListVM.taskList.tasks)
+            }
             timerVM.configureForCalendar(dayPlanVM: dayPlanVM, settings: settings)
             dayPlanVM.timerVM = timerVM
             if !dayPlanVM.dayPlan.tasks.isEmpty {
