@@ -107,42 +107,46 @@ struct TaskListView: View {
                 addTaskInsertIndex = nil
             }
         }
-        .confirmationDialog(
-            actionMenuTask?.title ?? "Task",
-            isPresented: $showActionMenu,
-            titleVisibility: .visible,
-            presenting: actionMenuTask
-        ) { task in
-            Button("Edit") {
-                gestureHints.recordMenuAction("edit")
-                editingTask = task
-            }
-            if !task.isCompleted {
-                Button("Reset Duration") {
-                    if task.id == timerVM.activeTaskId {
-                        timerVM.resetCurrentTaskDuration()
-                    } else {
-                        // For non-active tasks, remove any saved remaining time
-                        timerVM.savedRemainingTimes.removeValue(forKey: task.id)
-                    }
+        .actionSheet(isPresented: $showActionMenu) {
+            let task = actionMenuTask
+            var buttons: [ActionSheet.Button] = []
+
+            if let task = task {
+                buttons.append(.default(Text("Edit")) {
+                    gestureHints.recordMenuAction("edit")
+                    editingTask = task
+                })
+                if !task.isCompleted {
+                    buttons.append(.default(Text("Reset Duration")) {
+                        if task.id == timerVM.activeTaskId {
+                            timerVM.resetCurrentTaskDuration()
+                        } else {
+                            timerVM.savedRemainingTimes.removeValue(forKey: task.id)
+                        }
+                    })
+                    buttons.append(.default(Text("Insert Divider Here")) {
+                        if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
+                            taskListVM.setDivider(at: idx)
+                        }
+                    })
+                    buttons.append(.default(Text("Insert Task Above")) {
+                        if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
+                            addTaskInsertIndex = idx
+                            showAddTask = true
+                        }
+                    })
                 }
-                Button("Insert Divider Here") {
-                    if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
-                        taskListVM.setDivider(at: idx)
-                    }
-                }
-                Button("Insert Task Above") {
-                    if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
-                        addTaskInsertIndex = idx
-                        showAddTask = true
-                    }
-                }
+                buttons.append(.default(Text("Move to Bottom")) {
+                    gestureHints.recordMenuAction("moveToBottom")
+                    taskListVM.moveToBottom(taskId: task.id)
+                })
             }
-            Button("Move to Bottom") {
-                gestureHints.recordMenuAction("moveToBottom")
-                taskListVM.moveToBottom(taskId: task.id)
-            }
-            Button("Cancel", role: .cancel) {}
+            buttons.append(.cancel())
+
+            return ActionSheet(
+                title: Text(task?.title ?? "Task"),
+                buttons: buttons
+            )
         }
         .overlay(alignment: .bottom) {
             if let hint = gestureHintText {

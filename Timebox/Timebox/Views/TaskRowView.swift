@@ -17,101 +17,100 @@ struct TaskRowView: View {
     let onMenu: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 8) {
             // Color indicator bar
             RoundedRectangle(cornerRadius: 3)
                 .fill(task.color)
                 .frame(width: 6)
                 .padding(.vertical, 4)
 
-            // Icon
+            // Icon on far left
             if !task.icon.isEmpty {
                 taskIconView
                     .frame(width: 28)
+                    .padding(.top, 4)
             }
 
-            // Title and timestamps — tappable to edit
-            VStack(alignment: .leading, spacing: 3) {
+            // Two-row content: title on top, controls below
+            VStack(alignment: .leading, spacing: 6) {
+                // Row 1: Title spanning full width — tappable to edit
                 Text(task.title)
                     .font(.body)
                     .fontWeight(isActive ? .semibold : .regular)
                     .foregroundColor(isCompleted ? .primary.opacity(0.5) : .primary)
                     .strikethrough(isCompleted)
-                    .lineLimit(2)
-
-                if showTimes, let start = projectedStart, let end = projectedEnd {
-                    Text(TimeFormatting.formatCompactTimeRange(start: start, end: end))
-                        .font(.caption)
-                        .foregroundColor(.primary.opacity(0.7))
-                }
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                onEdit()
-            }
-
-            Spacer()
-
-            // Inline +/- duration controls for all non-completed tasks
-            if !isCompleted {
-                HStack(spacing: 4) {
-                    Button {
-                        onAdjustDuration(-plannedIncrement)
-                    } label: {
-                        Image(systemName: "minus")
-                            .font(.system(size: 12, weight: .bold))
-                            .frame(width: 28, height: 28)
-                            .background(Color(.tertiarySystemFill))
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-
-                    // Duration text — shows live remaining, tappable to edit
-                    Text(TimeFormatting.format(displayDuration))
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            onEdit()
-                        }
-
-                    Button {
-                        onAdjustDuration(plannedIncrement)
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 12, weight: .bold))
-                            .frame(width: 28, height: 28)
-                            .background(Color(.tertiarySystemFill))
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            // Complete button for non-completed tasks
-            if !isCompleted {
-                Button(action: onComplete) {
-                    Image(systemName: "checkmark.circle")
-                        .font(.system(size: 20))
-                        .foregroundColor(.green.opacity(0.7))
-                }
-                .buttonStyle(.plain)
-            }
-
-            // Menu button — large hit area for reliable tapping
-            Button(action: onMenu) {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 14))
-                    .foregroundColor(.primary.opacity(0.5))
-                    .frame(width: 44, height: 44)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
+                    .onTapGesture {
+                        onEdit()
+                    }
+
+                // Row 2: timestamps | - | duration | + | checkmark | menu
+                HStack(spacing: 6) {
+                    if showTimes, let start = projectedStart, let end = projectedEnd {
+                        Text(TimeFormatting.formatCompactTimeRange(start: start, end: end))
+                            .font(.caption)
+                            .foregroundColor(.primary.opacity(0.7))
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+
+                    Spacer()
+
+                    if !isCompleted {
+                        // +/- duration controls
+                        Button {
+                            onAdjustDuration(-plannedIncrement)
+                        } label: {
+                            Image(systemName: "minus")
+                                .font(.system(size: 12, weight: .bold))
+                                .frame(width: 28, height: 28)
+                                .background(Color(.tertiarySystemFill))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+
+                        Text(TimeFormatting.format(displayDuration))
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+
+                        Button {
+                            onAdjustDuration(plannedIncrement)
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.system(size: 12, weight: .bold))
+                                .frame(width: 28, height: 28)
+                                .background(Color(.tertiarySystemFill))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+
+                        // Complete button
+                        Button(action: onComplete) {
+                            Image(systemName: "checkmark.circle")
+                                .font(.system(size: 20))
+                                .foregroundColor(.green.opacity(0.7))
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    // Menu button
+                    Button(action: onMenu) {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 14))
+                            .foregroundColor(.primary.opacity(0.5))
+                            .frame(width: 36, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(isActive

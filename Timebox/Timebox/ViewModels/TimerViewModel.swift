@@ -276,18 +276,12 @@ class TimerViewModel: ObservableObject {
                 isOvertime = false
                 remainingTime = amount
                 overtimeElapsed = 0
-                // Add to planned duration so it reflects the added time
                 totalDuration += amount
             }
         } else {
             remainingTime = max(0, remainingTime + amount)
-            // Accumulate additions into planned total instead of just taking max
-            if amount > 0 {
-                totalDuration += amount
-            } else {
-                // When subtracting, don't let planned go below remaining
-                totalDuration = max(totalDuration, remainingTime)
-            }
+            // Symmetrically adjust planned total for both add and subtract
+            totalDuration = max(1, totalDuration + amount)
         }
         persistState()
     }
