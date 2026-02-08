@@ -42,7 +42,7 @@ struct TaskEditView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             Picker("Hours", selection: $hours) {
-                                ForEach(0..<10) { h in
+                                ForEach(0..<25) { h in
                                     Text("\(h)").tag(h)
                                 }
                             }
@@ -109,7 +109,7 @@ struct TaskEditView: View {
                     Button("Save") {
                         var updated = task
                         updated.title = titleText.isEmpty ? "Untitled" : titleText
-                        updated.duration = max(1, min(32400, computedDuration))
+                        updated.duration = max(1, min(86400, computedDuration))
                         onSave(updated)
                         dismiss()
                     }

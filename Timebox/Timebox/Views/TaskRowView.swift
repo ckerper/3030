@@ -28,7 +28,7 @@ struct TaskRowView: View {
 
             // Two-row content area
             VStack(alignment: .leading, spacing: 4) {
-                // Row 1: Icon (if any) + Title spanning full width
+                // Row 1: Icon (if any) + Title + Complete button
                 HStack(spacing: 6) {
                     if !task.icon.isEmpty {
                         taskIconView
@@ -42,13 +42,19 @@ struct TaskRowView: View {
                         .strikethrough(isCompleted)
                         .lineLimit(3)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    onEdit()
+
+                    if !isCompleted {
+                        Button(action: onComplete) {
+                            Image(systemName: "checkmark.circle")
+                                .font(.system(size: 20))
+                                .foregroundColor(.green.opacity(0.7))
+                        }
+                        .buttonStyle(.plain)
+                        .frame(width: 36, alignment: .center)
+                    }
                 }
 
-                // Row 2: timestamp ... - [duration] + checkmark menu
+                // Row 2: timestamp ... - [duration] + menu
                 HStack(spacing: 0) {
                     if showTimes, let start = projectedStart, let end = projectedEnd {
                         Text(TimeFormatting.formatCompactTimeRange(start: start, end: end))
@@ -89,16 +95,9 @@ struct TaskRowView: View {
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
-
-                        Button(action: onComplete) {
-                            Image(systemName: "checkmark.circle")
-                                .font(.system(size: 20))
-                                .foregroundColor(.green.opacity(0.7))
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.leading, 4)
                     }
 
+                    // Menu button — aligned under checkmark
                     Button(action: onMenu) {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 14))
@@ -113,6 +112,10 @@ struct TaskRowView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onEdit()
+        }
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(isActive

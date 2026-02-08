@@ -22,7 +22,7 @@ struct SmartTextParser {
         guard components.count > 1,
               let lastWord = components.last,
               let number = Double(String(lastWord)),
-              number > 0, number <= 540 // max 9 hours = 540 minutes
+              number > 0, number <= 1440 // max 24 hours = 1440 minutes
         else {
             return ParseResult(title: trimmed, duration: nil, ambiguousNumber: nil)
         }
