@@ -19,7 +19,7 @@ struct TaskItem: Identifiable, Codable, Equatable, Hashable {
     ) {
         self.id = id
         self.title = title
-        self.duration = min(max(duration, 1), 32400) // clamp 1s to 9h
+        self.duration = min(max(duration, 1), 86400) // clamp 1s to 24h
         self.colorName = colorName
         self.icon = icon
         self.isCompleted = isCompleted

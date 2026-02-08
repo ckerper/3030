@@ -16,38 +16,40 @@ struct TaskRowView: View {
     let onComplete: () -> Void
     let onMenu: () -> Void
 
+    // Static width for duration text — fits "24:00:00" in monospaced caption
+    private let durationWidth: CGFloat = 60
+
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            // Color indicator bar
+        HStack(alignment: .center, spacing: 8) {
+            // Color indicator bar — spans full height
             RoundedRectangle(cornerRadius: 3)
                 .fill(task.color)
                 .frame(width: 6)
-                .padding(.vertical, 4)
 
-            // Icon on far left
-            if !task.icon.isEmpty {
-                taskIconView
-                    .frame(width: 28)
-                    .padding(.top, 4)
-            }
-
-            // Two-row content: title on top, controls below
-            VStack(alignment: .leading, spacing: 6) {
-                // Row 1: Title spanning full width — tappable to edit
-                Text(task.title)
-                    .font(.body)
-                    .fontWeight(isActive ? .semibold : .regular)
-                    .foregroundColor(isCompleted ? .primary.opacity(0.5) : .primary)
-                    .strikethrough(isCompleted)
-                    .lineLimit(3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        onEdit()
+            // Two-row content area
+            VStack(alignment: .leading, spacing: 4) {
+                // Row 1: Icon (if any) + Title spanning full width
+                HStack(spacing: 6) {
+                    if !task.icon.isEmpty {
+                        taskIconView
+                            .frame(width: 24)
                     }
 
-                // Row 2: timestamps | - | duration | + | checkmark | menu
-                HStack(spacing: 6) {
+                    Text(task.title)
+                        .font(.body)
+                        .fontWeight(isActive ? .semibold : .regular)
+                        .foregroundColor(isCompleted ? .primary.opacity(0.5) : .primary)
+                        .strikethrough(isCompleted)
+                        .lineLimit(3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    onEdit()
+                }
+
+                // Row 2: timestamp ... - [duration] + checkmark menu
+                HStack(spacing: 0) {
                     if showTimes, let start = projectedStart, let end = projectedEnd {
                         Text(TimeFormatting.formatCompactTimeRange(start: start, end: end))
                             .font(.caption)
@@ -56,10 +58,9 @@ struct TaskRowView: View {
                             .fixedSize(horizontal: true, vertical: false)
                     }
 
-                    Spacer()
+                    Spacer(minLength: 4)
 
                     if !isCompleted {
-                        // +/- duration controls
                         Button {
                             onAdjustDuration(-plannedIncrement)
                         } label: {
@@ -71,11 +72,12 @@ struct TaskRowView: View {
                         }
                         .buttonStyle(.plain)
 
+                        // Fixed-width duration — keeps -/+ buttons aligned across rows
                         Text(TimeFormatting.format(displayDuration))
                             .font(.system(.caption, design: .monospaced))
                             .foregroundColor(.primary)
                             .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
+                            .frame(width: durationWidth, alignment: .center)
 
                         Button {
                             onAdjustDuration(plannedIncrement)
@@ -88,16 +90,15 @@ struct TaskRowView: View {
                         }
                         .buttonStyle(.plain)
 
-                        // Complete button
                         Button(action: onComplete) {
                             Image(systemName: "checkmark.circle")
                                 .font(.system(size: 20))
                                 .foregroundColor(.green.opacity(0.7))
                         }
                         .buttonStyle(.plain)
+                        .padding(.leading, 4)
                     }
 
-                    // Menu button
                     Button(action: onMenu) {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 14))
@@ -106,6 +107,7 @@ struct TaskRowView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .padding(.leading, 2)
                 }
             }
         }

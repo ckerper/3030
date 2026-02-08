@@ -107,46 +107,24 @@ struct TaskListView: View {
                 addTaskInsertIndex = nil
             }
         }
-        .actionSheet(isPresented: $showActionMenu) {
-            let task = actionMenuTask
-            var buttons: [ActionSheet.Button] = []
-
-            if let task = task {
-                buttons.append(.default(Text("Edit")) {
-                    gestureHints.recordMenuAction("edit")
-                    editingTask = task
-                })
-                if !task.isCompleted {
-                    buttons.append(.default(Text("Reset Duration")) {
-                        if task.id == timerVM.activeTaskId {
-                            timerVM.resetCurrentTaskDuration()
-                        } else {
-                            timerVM.savedRemainingTimes.removeValue(forKey: task.id)
-                        }
-                    })
-                    buttons.append(.default(Text("Insert Divider Here")) {
-                        if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
-                            taskListVM.setDivider(at: idx)
-                        }
-                    })
-                    buttons.append(.default(Text("Insert Task Above")) {
+        .sheet(isPresented: $showActionMenu) {
+            if let task = actionMenuTask {
+                TaskActionMenuView(
+                    task: task,
+                    timerVM: timerVM,
+                    taskListVM: taskListVM,
+                    gestureHints: gestureHints,
+                    onEdit: { editingTask = task },
+                    onInsertAbove: {
                         if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
                             addTaskInsertIndex = idx
                             showAddTask = true
                         }
-                    })
-                }
-                buttons.append(.default(Text("Move to Bottom")) {
-                    gestureHints.recordMenuAction("moveToBottom")
-                    taskListVM.moveToBottom(taskId: task.id)
-                })
+                    }
+                )
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
             }
-            buttons.append(.cancel())
-
-            return ActionSheet(
-                title: Text(task?.title ?? "Task"),
-                buttons: buttons
-            )
         }
         .overlay(alignment: .bottom) {
             if let hint = gestureHintText {
@@ -418,6 +396,83 @@ struct TaskListView: View {
                 .fill(Color(.tertiarySystemGroupedBackground))
         )
         .opacity(0.8)
+    }
+}
+
+// MARK: - Task Action Menu (bottom sheet)
+
+private struct TaskActionMenuView: View {
+    let task: TaskItem
+    @ObservedObject var timerVM: TimerViewModel
+    @ObservedObject var taskListVM: TaskListViewModel
+    @ObservedObject var gestureHints: GestureHintManager
+    let onEdit: () -> Void
+    let onInsertAbove: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 0) {
+            menuButton("Edit", icon: "pencil") {
+                gestureHints.recordMenuAction("edit")
+                dismiss()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { onEdit() }
+            }
+
+            if !task.isCompleted {
+                Divider()
+                menuButton("Reset", icon: "arrow.counterclockwise") {
+                    if task.id == timerVM.activeTaskId {
+                        timerVM.resetCurrentTaskDuration()
+                    } else {
+                        timerVM.savedRemainingTimes.removeValue(forKey: task.id)
+                    }
+                    dismiss()
+                }
+
+                Divider()
+                menuButton("Insert Divider Here", icon: "minus") {
+                    if let idx = taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) {
+                        taskListVM.setDivider(at: idx)
+                    }
+                    dismiss()
+                }
+
+                Divider()
+                menuButton("Insert Task Above", icon: "plus") {
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { onInsertAbove() }
+                }
+            }
+
+            Divider()
+            menuButton("Move to Bottom", icon: "arrow.down.to.line") {
+                gestureHints.recordMenuAction("moveToBottom")
+                taskListVM.moveToBottom(taskId: task.id)
+                dismiss()
+            }
+
+            Spacer()
+        }
+        .padding(.top, 20)
+    }
+
+    private func menuButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .frame(width: 24)
+                    .foregroundColor(.primary)
+                Text(title)
+                    .font(.body)
+                    .foregroundColor(.primary)
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

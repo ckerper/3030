@@ -213,7 +213,7 @@ class TaskListViewModel: ObservableObject {
     func adjustDuration(taskId: UUID, by amount: TimeInterval) {
         saveUndoState(description: "Adjust duration")
         if let index = taskList.tasks.firstIndex(where: { $0.id == taskId }) {
-            let newDuration = max(1, min(32400, taskList.tasks[index].duration + amount))
+            let newDuration = max(1, min(86400, taskList.tasks[index].duration + amount))
             taskList.tasks[index].duration = newDuration
         }
     }
