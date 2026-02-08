@@ -119,14 +119,13 @@ struct TaskRowView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(isActive
-                    ? task.color.opacity(0.15)
-                    : Color(.secondarySystemGroupedBackground))
+                .fill(task.color.opacity(isActive ? 0.18 : 0.10))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(isActive ? task.color.opacity(0.4) : Color.clear, lineWidth: 2)
+                .strokeBorder(task.color.opacity(isActive ? 0.6 : 0.25), lineWidth: isActive ? 2.5 : 1)
         )
+        .shadow(color: isActive ? task.color.opacity(0.35) : .clear, radius: 6, x: 0, y: 2)
     }
 
     @ViewBuilder
