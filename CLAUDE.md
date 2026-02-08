@@ -6,7 +6,7 @@
 - **Xcode**: Only assume the user can connect a device and hit `cmd+R`. For anything beyond that, provide detailed guidance.
 
 ## Project Scope
-- **App Name**: Timebox (formerly Timekerper)
+- **App Name**: Timekerper (formerly Timebox)
 - **Purpose**: Personal task timer/timeboxing app for the developer's single device
 - **Distribution**: NOT intended for App Store distribution or monetization — this is a personal tool only
 - **Target Device**: iOS (iPhone)
@@ -48,8 +48,13 @@ Timebox/
 └── TimeboxApp.swift               # App entry point
 ```
 
+## Developer Account & Constraints
+- **Apple Developer Account**: Free account (not paid/team)
+- **Implications**: No access to paywalled functionality like CloudKit iCloud sync or push notifications
+- **Note**: The code currently includes CloudKit references, but these won't function without an upgraded account
+
 ## Recent Development
-The app was recently renamed from "Timekerper" to "Timebox" and has active development on timer logic, UI polish, and persistence. Current branch structure uses `claude/*` branches for feature development.
+The app was recently renamed from "Timebox" to "Timekerper" and has active development on timer logic, UI polish, and persistence. Current branch structure uses `claude/*` branches for feature development.
 
 ## Claude.md Maintenance
 **Claude is welcome to update this file at any time** with information that will be frequently relevant in future prompts. When making updates, explain them to the user by saying:
