@@ -15,10 +15,14 @@
 		AA000011 /* TaskListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000011; };
 		AA000012 /* Preset.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000012; };
 		AA000013 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000013; };
+		AA000014 /* Event.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000014; };
+		AA000015 /* DayPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000015; };
+		AA000016 /* TimelineSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000016; };
 		AA000020 /* TimerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000020; };
 		AA000021 /* TaskListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000021; };
 		AA000022 /* PresetViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000022; };
 		AA000023 /* UndoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000023; };
+		AA000024 /* DayPlanViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000024; };
 		AA000030 /* TimerDialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000030; };
 		AA000031 /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000031; };
 		AA000032 /* TaskEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000032; };
@@ -33,6 +37,12 @@
 		AA000041 /* CloudKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000041; };
 		AA000042 /* SmartTextParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000042; };
 		AA000043 /* GestureHintManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000043; };
+		AA000044 /* SchedulingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000044; };
+		AA000050 /* AddEventView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000050; };
+		AA000051 /* EventEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000051; };
+		AA000052 /* CalendarTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000052; };
+		AA000053 /* CalendarModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000053; };
+		AA000054 /* FloatingProgressBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000054; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -47,10 +57,14 @@
 		AB000011 /* TaskListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskListModel.swift; sourceTree = "<group>"; };
 		AB000012 /* Preset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preset.swift; sourceTree = "<group>"; };
 		AB000013 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		AB000014 /* Event.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Event.swift; sourceTree = "<group>"; };
+		AB000015 /* DayPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPlan.swift; sourceTree = "<group>"; };
+		AB000016 /* TimelineSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineSlot.swift; sourceTree = "<group>"; };
 		AB000020 /* TimerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerViewModel.swift; sourceTree = "<group>"; };
 		AB000021 /* TaskListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskListViewModel.swift; sourceTree = "<group>"; };
 		AB000022 /* PresetViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetViewModel.swift; sourceTree = "<group>"; };
 		AB000023 /* UndoManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoManager.swift; sourceTree = "<group>"; };
+		AB000024 /* DayPlanViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPlanViewModel.swift; sourceTree = "<group>"; };
 		AB000030 /* TimerDialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerDialView.swift; sourceTree = "<group>"; };
 		AB000031 /* TaskRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskRowView.swift; sourceTree = "<group>"; };
 		AB000032 /* TaskEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditView.swift; sourceTree = "<group>"; };
@@ -65,6 +79,12 @@
 		AB000041 /* CloudKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitService.swift; sourceTree = "<group>"; };
 		AB000042 /* SmartTextParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartTextParser.swift; sourceTree = "<group>"; };
 		AB000043 /* GestureHintManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GestureHintManager.swift; sourceTree = "<group>"; };
+		AB000044 /* SchedulingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchedulingEngine.swift; sourceTree = "<group>"; };
+		AB000050 /* AddEventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEventView.swift; sourceTree = "<group>"; };
+		AB000051 /* EventEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventEditView.swift; sourceTree = "<group>"; };
+		AB000052 /* CalendarTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTimelineView.swift; sourceTree = "<group>"; };
+		AB000053 /* CalendarModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarModeView.swift; sourceTree = "<group>"; };
+		AB000054 /* FloatingProgressBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingProgressBar.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -110,6 +130,9 @@
 				AB000011 /* TaskListModel.swift */,
 				AB000012 /* Preset.swift */,
 				AB000013 /* AppSettings.swift */,
+				AB000014 /* Event.swift */,
+				AB000015 /* DayPlan.swift */,
+				AB000016 /* TimelineSlot.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -121,6 +144,7 @@
 				AB000021 /* TaskListViewModel.swift */,
 				AB000022 /* PresetViewModel.swift */,
 				AB000023 /* UndoManager.swift */,
+				AB000024 /* DayPlanViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -135,6 +159,10 @@
 				AB000034 /* PresetsView.swift */,
 				AB000035 /* SettingsView.swift */,
 				AB000036 /* AddTaskView.swift */,
+				AB000050 /* AddEventView.swift */,
+				AB000051 /* EventEditView.swift */,
+				AB000052 /* CalendarTimelineView.swift */,
+				AB000053 /* CalendarModeView.swift */,
 				AD000031 /* Components */,
 			);
 			path = Views;
@@ -147,6 +175,7 @@
 				AB000038 /* IconPicker.swift */,
 				AB000039 /* PieTimerView.swift */,
 				AB000040 /* TimeDividerView.swift */,
+				AB000054 /* FloatingProgressBar.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -157,6 +186,7 @@
 				AB000041 /* CloudKitService.swift */,
 				AB000042 /* SmartTextParser.swift */,
 				AB000043 /* GestureHintManager.swift */,
+				AB000044 /* SchedulingEngine.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -253,10 +283,14 @@
 				AA000011 /* TaskListModel.swift in Sources */,
 				AA000012 /* Preset.swift in Sources */,
 				AA000013 /* AppSettings.swift in Sources */,
+				AA000014 /* Event.swift in Sources */,
+				AA000015 /* DayPlan.swift in Sources */,
+				AA000016 /* TimelineSlot.swift in Sources */,
 				AA000020 /* TimerViewModel.swift in Sources */,
 				AA000021 /* TaskListViewModel.swift in Sources */,
 				AA000022 /* PresetViewModel.swift in Sources */,
 				AA000023 /* UndoManager.swift in Sources */,
+				AA000024 /* DayPlanViewModel.swift in Sources */,
 				AA000030 /* TimerDialView.swift in Sources */,
 				AA000031 /* TaskRowView.swift in Sources */,
 				AA000032 /* TaskEditView.swift in Sources */,
@@ -271,6 +305,12 @@
 				AA000041 /* CloudKitService.swift in Sources */,
 				AA000042 /* SmartTextParser.swift in Sources */,
 				AA000043 /* GestureHintManager.swift in Sources */,
+				AA000044 /* SchedulingEngine.swift in Sources */,
+				AA000050 /* AddEventView.swift in Sources */,
+				AA000051 /* EventEditView.swift in Sources */,
+				AA000052 /* CalendarTimelineView.swift in Sources */,
+				AA000053 /* CalendarModeView.swift in Sources */,
+				AA000054 /* FloatingProgressBar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

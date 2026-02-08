@@ -1,0 +1,122 @@
+import SwiftUI
+
+struct AddEventView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var onAdd: (Event) -> Void
+
+    @State private var title: String = ""
+    @State private var startTime: Date = {
+        // Default to next 15-minute mark
+        let now = Date()
+        let cal = Calendar.current
+        let minutes = cal.component(.minute, from: now)
+        let roundUp = (15 - (minutes % 15)) % 15
+        return cal.date(byAdding: .minute, value: roundUp == 0 ? 15 : roundUp, to: now) ?? now
+    }()
+    @State private var durationMinutes: Double = 30
+    @State private var selectedColor: String = "slate"
+
+    private let durationOptions: [Double] = [15, 30, 45, 60, 90, 120]
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Event Title") {
+                    TextField("e.g. Team standup", text: $title)
+                }
+
+                Section("Start Time") {
+                    DatePicker(
+                        "Starts at",
+                        selection: $startTime,
+                        displayedComponents: .hourAndMinute
+                    )
+                }
+
+                Section("Duration") {
+                    Picker("Duration", selection: $durationMinutes) {
+                        ForEach(durationOptions, id: \.self) { mins in
+                            Text(formatDuration(mins)).tag(mins)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                Section("Color") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(TaskColor.palette, id: \.name) { item in
+                                Circle()
+                                    .fill(item.color)
+                                    .frame(width: 32, height: 32)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white, lineWidth: selectedColor == item.name ? 3 : 0)
+                                    )
+                                    .overlay(
+                                        selectedColor == item.name ?
+                                        Image(systemName: "checkmark")
+                                            .font(.caption)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.white)
+                                        : nil
+                                    )
+                                    .onTapGesture {
+                                        selectedColor = item.name
+                                    }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+
+                Section {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 4) {
+                            Text(TimeFormatting.formatClockTime(startTime))
+                                .font(.headline)
+                            Text("to")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(TimeFormatting.formatClockTime(startTime.addingTimeInterval(durationMinutes * 60)))
+                                .font(.headline)
+                        }
+                        Spacer()
+                    }
+                } header: {
+                    Text("Summary")
+                }
+            }
+            .navigationTitle("Add Event")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        let event = Event(
+                            title: title.isEmpty ? "Event" : title,
+                            startTime: startTime,
+                            plannedDuration: durationMinutes * 60,
+                            colorName: selectedColor
+                        )
+                        onAdd(event)
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private func formatDuration(_ minutes: Double) -> String {
+        if minutes >= 60 {
+            let h = Int(minutes) / 60
+            let m = Int(minutes) % 60
+            return m > 0 ? "\(h)h\(m)m" : "\(h)h"
+        }
+        return "\(Int(minutes))m"
+    }
+}

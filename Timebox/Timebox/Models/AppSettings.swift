@@ -17,6 +17,32 @@ class AppSettings: ObservableObject, Codable {
     @Published var showEstimatedFinish: Bool = true
     @Published var keepScreenOn: Bool = false
 
+    // App Mode
+    @Published var appMode: AppModeSetting = .list
+
+    // Calendar mode settings
+    @Published var calendarZoom: CalendarZoomSetting = .oneHour
+
+    enum AppModeSetting: String, Codable, CaseIterable {
+        case list = "List"
+        case calendar = "Calendar"
+    }
+
+    enum CalendarZoomSetting: String, Codable, CaseIterable {
+        case thirtyMin = "30 min"
+        case oneHour = "1 hour"
+        case twoHours = "2 hours"
+
+        /// Points per hour at this zoom level
+        var pointsPerHour: CGFloat {
+            switch self {
+            case .thirtyMin: return 240
+            case .oneHour: return 120
+            case .twoHours: return 60
+            }
+        }
+    }
+
     // Appearance
     @Published var darkMode: DarkModeSetting = .system
 
@@ -37,6 +63,8 @@ class AppSettings: ObservableObject, Codable {
         case showTotalListTime
         case showEstimatedFinish
         case keepScreenOn
+        case appMode
+        case calendarZoom
         case darkMode
     }
 
@@ -53,6 +81,8 @@ class AppSettings: ObservableObject, Codable {
         showTotalListTime = try container.decodeIfPresent(Bool.self, forKey: .showTotalListTime) ?? true
         showEstimatedFinish = try container.decodeIfPresent(Bool.self, forKey: .showEstimatedFinish) ?? true
         keepScreenOn = try container.decodeIfPresent(Bool.self, forKey: .keepScreenOn) ?? false
+        appMode = try container.decodeIfPresent(AppModeSetting.self, forKey: .appMode) ?? .list
+        calendarZoom = try container.decodeIfPresent(CalendarZoomSetting.self, forKey: .calendarZoom) ?? .oneHour
         darkMode = try container.decodeIfPresent(DarkModeSetting.self, forKey: .darkMode) ?? .system
     }
 
@@ -67,6 +97,8 @@ class AppSettings: ObservableObject, Codable {
         try container.encode(showTotalListTime, forKey: .showTotalListTime)
         try container.encode(showEstimatedFinish, forKey: .showEstimatedFinish)
         try container.encode(keepScreenOn, forKey: .keepScreenOn)
+        try container.encode(appMode, forKey: .appMode)
+        try container.encode(calendarZoom, forKey: .calendarZoom)
         try container.encode(darkMode, forKey: .darkMode)
     }
 

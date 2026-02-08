@@ -14,6 +14,12 @@ class TimerViewModel: ObservableObject {
     /// The ID of the task currently on the timer.
     @Published var activeTaskId: UUID?
 
+    /// Calendar mode: the ID of the event currently being timed (nil when timing a task).
+    @Published var activeEventId: UUID?
+
+    /// Calendar mode: true when the timer is counting down an event instead of a task.
+    @Published var isTimingEvent: Bool = false
+
     /// Saved remaining times for tasks that were interrupted (bumped down).
     /// Key: task ID, Value: remaining seconds when paused/bumped.
     var savedRemainingTimes: [UUID: TimeInterval] = [:]
@@ -21,6 +27,7 @@ class TimerViewModel: ObservableObject {
     // MARK: - Dependencies
     private var timer: AnyCancellable?
     private var taskList: TaskListViewModel?
+    private var dayPlanVM: DayPlanViewModel?
     private var settings: AppSettings?
 
     // MARK: - Persistence Keys
@@ -56,18 +63,46 @@ class TimerViewModel: ObservableObject {
     }
 
     var currentTask: TaskItem? {
-        guard let taskList = taskList, let id = activeTaskId else { return nil }
-        return taskList.taskList.tasks.first(where: { $0.id == id })
+        if let id = activeTaskId {
+            if let taskList = taskList {
+                return taskList.taskList.tasks.first(where: { $0.id == id })
+            }
+            if let dayPlanVM = dayPlanVM {
+                return dayPlanVM.dayPlan.tasks.first(where: { $0.id == id })
+            }
+        }
+        return nil
+    }
+
+    /// Calendar mode: the current event being timed.
+    var currentEvent: Event? {
+        guard let dayPlanVM = dayPlanVM, let id = activeEventId else { return nil }
+        return dayPlanVM.dayPlan.events.first(where: { $0.id == id })
     }
 
     var currentColor: String {
-        currentTask?.colorName ?? "blue"
+        if isTimingEvent, let event = currentEvent {
+            return event.colorName
+        }
+        return currentTask?.colorName ?? "blue"
+    }
+
+    var currentTitle: String {
+        if isTimingEvent, let event = currentEvent {
+            return event.title
+        }
+        return currentTask?.title ?? ""
     }
 
     // MARK: - Setup
 
     func configure(taskList: TaskListViewModel, settings: AppSettings) {
         self.taskList = taskList
+        self.settings = settings
+    }
+
+    func configureForCalendar(dayPlanVM: DayPlanViewModel, settings: AppSettings) {
+        self.dayPlanVM = dayPlanVM
         self.settings = settings
     }
 
@@ -132,14 +167,24 @@ class TimerViewModel: ObservableObject {
     }
 
     func start() {
-        guard let taskList = taskList else { return }
-
-        // Make sure we're pointed at the first pending task
-        if activeTaskId == nil {
-            if let first = taskList.pendingTasks.first {
-                activeTaskId = first.id
-                remainingTime = first.duration
-                totalDuration = first.duration
+        // In list mode, use taskList; in calendar mode, use dayPlanVM; event timing sets its own state
+        if activeTaskId == nil && !isTimingEvent {
+            if let taskList = taskList {
+                if let first = taskList.pendingTasks.first {
+                    activeTaskId = first.id
+                    remainingTime = first.duration
+                    totalDuration = first.duration
+                } else {
+                    return
+                }
+            } else if let dayPlanVM = dayPlanVM {
+                if let first = dayPlanVM.pendingTasks.first {
+                    activeTaskId = first.id
+                    remainingTime = first.duration
+                    totalDuration = first.duration
+                } else {
+                    return
+                }
             } else {
                 return
             }
@@ -266,6 +311,193 @@ class TimerViewModel: ObservableObject {
             overtimeElapsed = 0
             isOvertime = false
         }
+    }
+
+    // MARK: - Calendar Mode: Sync & Event Interruption
+
+    /// Sync to the first pending task in calendar mode's DayPlan.
+    func syncToFirstPendingCalendar() {
+        guard let dayPlanVM = dayPlanVM else { return }
+
+        // If we're timing an event, don't switch
+        if isTimingEvent { return }
+
+        let firstPending = dayPlanVM.pendingTasks.first
+
+        guard let target = firstPending else {
+            if isRunning && !isTimingEvent { stop() }
+            activeTaskId = nil
+            return
+        }
+
+        if target.id == activeTaskId { return }
+
+        if let currentId = activeTaskId, remainingTime > 0 && !isOvertime {
+            savedRemainingTimes[currentId] = remainingTime
+        }
+
+        let wasRunning = isRunning
+        if isRunning { pause() }
+
+        activeTaskId = target.id
+        isTimingEvent = false
+        activeEventId = nil
+
+        if let saved = savedRemainingTimes[target.id] {
+            remainingTime = saved
+            totalDuration = target.duration
+            overtimeElapsed = 0
+            isOvertime = false
+            savedRemainingTimes.removeValue(forKey: target.id)
+        } else {
+            remainingTime = target.duration
+            totalDuration = target.duration
+            overtimeElapsed = 0
+            isOvertime = false
+        }
+
+        if wasRunning { start() }
+    }
+
+    /// Start timing an event (calendar mode). Pauses any active task timer.
+    func startEvent(_ event: Event) {
+        // Save current task timer state
+        if let currentId = activeTaskId, remainingTime > 0 && !isOvertime && !isTimingEvent {
+            savedRemainingTimes[currentId] = remainingTime
+        }
+
+        if isRunning { pause() }
+
+        isTimingEvent = true
+        activeEventId = event.id
+        activeTaskId = nil
+        remainingTime = event.plannedDuration
+        totalDuration = event.plannedDuration
+        overtimeElapsed = 0
+        isOvertime = false
+
+        start()
+    }
+
+    /// Complete the current event and resume task timing.
+    func completeCurrentEvent() {
+        guard let dayPlanVM = dayPlanVM, let eventId = activeEventId else { return }
+
+        if isRunning { pause() }
+
+        dayPlanVM.completeEvent(id: eventId)
+
+        isTimingEvent = false
+        activeEventId = nil
+
+        // Resume the first pending task
+        syncToFirstPendingCalendar()
+
+        if settings?.autoStartNextTask == true {
+            start()
+        }
+
+        dayPlanVM.recomputeTimeline()
+        persistState()
+    }
+
+    /// Check if an event should interrupt the current task timer (called from tick).
+    func checkEventInterruption() {
+        guard let dayPlanVM = dayPlanVM, !isTimingEvent else { return }
+
+        if let event = dayPlanVM.eventStartingNow(tolerance: 1.0) {
+            // Auto-finish any previous event
+            dayPlanVM.autoFinishPreviousEvent(before: event.id)
+
+            // Record actual start time for the current task being interrupted
+            if let taskId = activeTaskId,
+               let idx = dayPlanVM.dayPlan.tasks.firstIndex(where: { $0.id == taskId }) {
+                if dayPlanVM.dayPlan.tasks[idx].actualStartTime == nil {
+                    dayPlanVM.dayPlan.tasks[idx].actualStartTime = timerStartedAt
+                }
+            }
+
+            // Start the event
+            startEvent(event)
+
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.warning)
+        }
+    }
+
+    /// Start timing a task from calendar mode's DayPlan (used for manual start).
+    func startCalendarTask() {
+        guard let dayPlanVM = dayPlanVM else { return }
+
+        if activeTaskId == nil {
+            if let first = dayPlanVM.pendingTasks.first {
+                activeTaskId = first.id
+                remainingTime = first.duration
+                totalDuration = first.duration
+            } else {
+                return
+            }
+        }
+
+        if remainingTime <= 0 && !isOvertime {
+            if let task = currentTask {
+                remainingTime = task.duration
+                totalDuration = task.duration
+            }
+        }
+
+        isTimingEvent = false
+        activeEventId = nil
+
+        // Record actual start time
+        if let taskId = activeTaskId,
+           let idx = dayPlanVM.dayPlan.tasks.firstIndex(where: { $0.id == taskId }),
+           dayPlanVM.dayPlan.tasks[idx].actualStartTime == nil {
+            dayPlanVM.dayPlan.tasks[idx].actualStartTime = Date()
+        }
+
+        start()
+    }
+
+    /// Complete the current task in calendar mode.
+    func completeCurrentTaskCalendar() {
+        guard let dayPlanVM = dayPlanVM, let id = activeTaskId else { return }
+
+        if !isOvertime && remainingTime > 0 {
+            savedRemainingTimes[id] = remainingTime
+        } else {
+            savedRemainingTimes.removeValue(forKey: id)
+        }
+
+        dayPlanVM.completeTask(id: id)
+
+        // Advance to next pending in calendar mode
+        let pending = dayPlanVM.pendingTasks
+        if let next = pending.first {
+            activeTaskId = next.id
+            if let saved = savedRemainingTimes[next.id] {
+                remainingTime = saved
+                totalDuration = next.duration
+                overtimeElapsed = 0
+                isOvertime = false
+                savedRemainingTimes.removeValue(forKey: next.id)
+            } else {
+                remainingTime = next.duration
+                totalDuration = next.duration
+                overtimeElapsed = 0
+                isOvertime = false
+            }
+            if settings?.autoStartNextTask == true {
+                start()
+            } else {
+                pause()
+            }
+        } else {
+            stop()
+        }
+
+        dayPlanVM.recomputeTimeline()
+        persistState()
     }
 
     // MARK: - Time Adjustment
@@ -459,6 +691,11 @@ class TimerViewModel: ObservableObject {
                 let generator = UINotificationFeedbackGenerator()
                 generator.notificationOccurred(.warning)
             }
+        }
+
+        // Calendar mode: check if an event should interrupt the current task
+        if dayPlanVM != nil && !isTimingEvent {
+            checkEventInterruption()
         }
     }
 }
