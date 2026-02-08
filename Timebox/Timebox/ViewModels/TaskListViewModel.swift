@@ -315,14 +315,15 @@ class TaskListViewModel: ObservableObject {
         taskList.totalDuration
     }
 
-    func liveTotalTime(timerRemaining: TimeInterval, activeIndex: Int, isTimerActive: Bool) -> TimeInterval {
+    func liveTotalTime(timerRemaining: TimeInterval, activeTaskId: UUID?, savedRemainingTimes: [UUID: TimeInterval]) -> TimeInterval {
         let tasks = taskList.activeTasks
         var total: TimeInterval = 0
-        for (i, task) in tasks.enumerated() {
+        for task in tasks {
             if task.isCompleted { continue }
-            if isTimerActive && i == activeIndex {
-                // Use the live remaining time instead of planned duration
+            if task.id == activeTaskId {
                 total += max(0, timerRemaining)
+            } else if let saved = savedRemainingTimes[task.id] {
+                total += saved
             } else {
                 total += task.duration
             }
@@ -330,12 +331,12 @@ class TaskListViewModel: ObservableObject {
         return total
     }
 
-    func formattedTotalTime(timerRemaining: TimeInterval, activeIndex: Int, isTimerActive: Bool) -> String {
-        TimeFormatting.format(liveTotalTime(timerRemaining: timerRemaining, activeIndex: activeIndex, isTimerActive: isTimerActive))
+    func formattedTotalTime(timerRemaining: TimeInterval, activeTaskId: UUID?, savedRemainingTimes: [UUID: TimeInterval]) -> String {
+        TimeFormatting.format(liveTotalTime(timerRemaining: timerRemaining, activeTaskId: activeTaskId, savedRemainingTimes: savedRemainingTimes))
     }
 
-    func estimatedFinishTime(timerRemaining: TimeInterval, activeIndex: Int, isTimerActive: Bool) -> String {
-        let remaining = liveTotalTime(timerRemaining: timerRemaining, activeIndex: activeIndex, isTimerActive: isTimerActive)
+    func estimatedFinishTime(timerRemaining: TimeInterval, activeTaskId: UUID?, savedRemainingTimes: [UUID: TimeInterval]) -> String {
+        let remaining = liveTotalTime(timerRemaining: timerRemaining, activeTaskId: activeTaskId, savedRemainingTimes: savedRemainingTimes)
         return TimeFormatting.formatClockTime(Date().addingTimeInterval(remaining))
     }
 
