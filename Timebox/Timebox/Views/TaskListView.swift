@@ -17,8 +17,6 @@ struct TaskListView: View {
     @State private var actionMenuTask: TaskItem?
     @State private var gestureHintText: String?
     @State private var showCompletedSection = false
-    @State private var showClearAllConfirm = false
-    @State private var showClearCompletedConfirm = false
 
     private let incrementLabels = ["1m", "5m", "15m"]
 
@@ -81,22 +79,6 @@ struct TaskListView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .scrollBounceBehavior(.basedOnSize)
-        }
-        .confirmationDialog("Clear All Tasks?", isPresented: $showClearAllConfirm) {
-            Button("Clear All", role: .destructive) {
-                taskListVM.clearAll()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This will remove all \(taskListVM.taskList.tasks.count) tasks. You can undo this.")
-        }
-        .confirmationDialog("Clear Completed Tasks?", isPresented: $showClearCompletedConfirm) {
-            Button("Clear \(taskListVM.completedTasks.count) Completed", role: .destructive) {
-                taskListVM.clearCompleted()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This will remove \(taskListVM.completedTasks.count) completed tasks. You can undo this.")
         }
         .sheet(item: $editingTask) { task in
             TaskEditView(task: task) { updated in
@@ -337,7 +319,7 @@ struct TaskListView: View {
         HStack(spacing: 12) {
             if !taskListVM.completedTasks.isEmpty {
                 Button {
-                    showClearCompletedConfirm = true
+                    taskListVM.clearCompleted()
                 } label: {
                     Label("Clear Completed", systemImage: "checkmark.circle")
                         .font(.caption)
@@ -349,7 +331,7 @@ struct TaskListView: View {
             Spacer()
 
             Button {
-                showClearAllConfirm = true
+                taskListVM.clearAll()
             } label: {
                 Label("Clear All", systemImage: "trash")
                     .font(.caption)
