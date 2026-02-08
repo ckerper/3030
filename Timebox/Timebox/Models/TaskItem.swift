@@ -62,6 +62,12 @@ struct TaskColor {
 
     static let paletteNames: [String] = palette.map(\.name)
 
+    /// Subset of palette used for automatic color cycling (excludes muted tones)
+    static let cycleNames: [String] = [
+        "teal", "blue", "indigo", "purple", "pink",
+        "red", "orange", "yellow", "green",
+    ]
+
     // RGB components for computing tints and shades
     private static let rgbValues: [String: (r: Double, g: Double, b: Double)] = [
         "red": (0.91, 0.30, 0.24),
@@ -121,15 +127,15 @@ struct TaskColor {
     }
 
     /// Pick the next color that differs from the given previous color.
-    /// Cycles through the palette in order, skipping the previous color.
+    /// Cycles through cycleNames in order, skipping brown/gray/slate.
     static func nextColor(after previousColorName: String?) -> String {
         guard let prev = previousColorName,
-              let prevIndex = paletteNames.firstIndex(of: prev)
+              let prevIndex = cycleNames.firstIndex(of: prev)
         else {
-            return "green"
+            return "teal"
         }
-        let nextIndex = (prevIndex + 1) % paletteNames.count
-        return paletteNames[nextIndex]
+        let nextIndex = (prevIndex + 1) % cycleNames.count
+        return cycleNames[nextIndex]
     }
 }
 
