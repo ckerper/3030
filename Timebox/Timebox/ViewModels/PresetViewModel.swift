@@ -59,11 +59,13 @@ class PresetViewModel: ObservableObject {
     // MARK: - CRUD
 
     func addPreset(_ preset: Preset) {
+        pushUndo()
         presets.append(preset)
         save()
     }
 
     func saveCurrentList(name: String, tasks: [TaskItem]) {
+        pushUndo()
         let preset = Preset(name: name, tasks: tasks)
         presets.append(preset)
         save()
@@ -71,6 +73,7 @@ class PresetViewModel: ObservableObject {
 
     func updatePreset(_ preset: Preset) {
         if let index = presets.firstIndex(where: { $0.id == preset.id }) {
+            pushUndo()
             presets[index] = preset
             presets[index].updatedAt = Date()
             save()
