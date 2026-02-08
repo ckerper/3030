@@ -1,8 +1,8 @@
-# Planner Mode: Design Document
+# Calendar Mode: Design Document
 
 ## Overview
 
-Timekerper currently operates as a sequential task timer -- you create a list of tasks with durations, and the app works through them in order. **Planner mode** extends this with a calendar-style timeline that supports **fixed-time events** (meetings, appointments) alongside **fluid tasks** that fill the gaps between them.
+Timekerper currently operates as a sequential task timer -- you create a list of tasks with durations, and the app works through them in order. **Calendar mode** extends this with a calendar-style timeline that supports **fixed-time events** (meetings, appointments) alongside **fluid tasks** that fill the gaps between them.
 
 The core insight: tasks reflow automatically when you finish early or run late. Events stay pinned to the clock. No more manually updating 20 calendar entries when one task runs long.
 
@@ -39,7 +39,7 @@ When a task's duration would overlap with an event, the app automatically splits
 
 ### Task Timer
 
-Works the same as simple mode. Counts down the current fragment's duration. When it reaches zero, enters overtime (counts up). User decides when to mark complete.
+Works the same as list mode. Counts down the current fragment's duration. When it reaches zero, enters overtime (counts up). User decides when to mark complete.
 
 ### Event Interruption
 
@@ -63,14 +63,16 @@ A task can be marked complete during an event interruption ("I forgot to check t
 
 Events end when the user says they end, not when the planned duration expires. The `actualEndTime` is recorded for timesheet purposes. After an event ends, the next scheduled item (task fragment or another event) begins.
 
+**Auto-finish on next event:** If a subsequent event's start time arrives while a previous event is still active (user hasn't tapped "done"), the previous event is **automatically completed**. Its `actualEndTime` is set to the new event's start time. This handles back-to-back meetings where the user doesn't have a chance to look at their phone between them. Without this, the app would show the first event running way overtime and the second event as missed, which doesn't reflect reality. The chain works for any number of consecutive events -- each one auto-finishes the previous.
+
 ## UI Design
 
 ### App Modes
 
 The app has two modes, toggled in settings:
 
-- **Simple mode**: Current app behavior. Task list + dial timer. No events, no clock-pinning, no timeline.
-- **Planner mode**: Calendar timeline with events + tasks. Floating progress bar. All new features described here.
+- **List mode**: Current app behavior. Task list + dial timer. No events, no clock-pinning, no timeline.
+- **Calendar mode**: Calendar timeline with events + tasks. Floating progress bar. All new features described here.
 
 Both modes share the same `TaskItem` model and core timer logic.
 
@@ -285,6 +287,6 @@ If a timer is left running overnight, tasks just keep pushing forward. The app d
 - **Recurring events**: Repeat rules on events (daily, specific weekdays) that auto-populate when a new DayPlan is created. Priority: high (avoids re-entering the same meeting 5x/week).
 - **Calendar import**: Pull events from the iPhone Calendar app instead of manual entry.
 - **Retroactive time editing**: Manually adjust start/end times of completed items for timesheet accuracy.
-- **Day-clock dial**: A circular 24-hour (or waking-hours) dial showing the full day with colored arcs for tasks and events. Planner mode equivalent of the simple mode dial.
+- **Day-clock dial**: A circular 24-hour (or waking-hours) dial showing the full day with colored arcs for tasks and events. Calendar mode equivalent of the list mode dial.
 - **End-of-day goal**: Optional target time ("done by 11 PM") with visual indicator of whether the plan fits.
 - **Multi-day view**: See/plan more than just today.
