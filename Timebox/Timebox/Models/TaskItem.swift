@@ -38,15 +38,15 @@ struct TaskItem: Identifiable, Codable, Equatable, Hashable {
 
 struct TaskColor {
     static let palette: [(name: String, color: Color)] = [
-        ("red", Color(red: 0.91, green: 0.30, blue: 0.24)),
-        ("orange", Color(red: 0.95, green: 0.61, blue: 0.07)),
-        ("yellow", Color(red: 0.95, green: 0.77, blue: 0.06)),
         ("green", Color(red: 0.18, green: 0.80, blue: 0.44)),
         ("teal", Color(red: 0.09, green: 0.71, blue: 0.65)),
         ("blue", Color(red: 0.20, green: 0.60, blue: 0.86)),
         ("indigo", Color(red: 0.36, green: 0.42, blue: 0.75)),
         ("purple", Color(red: 0.61, green: 0.35, blue: 0.71)),
         ("pink", Color(red: 0.91, green: 0.38, blue: 0.57)),
+        ("red", Color(red: 0.91, green: 0.30, blue: 0.24)),
+        ("orange", Color(red: 0.95, green: 0.61, blue: 0.07)),
+        ("yellow", Color(red: 0.95, green: 0.77, blue: 0.06)),
         ("brown", Color(red: 0.62, green: 0.47, blue: 0.36)),
         ("gray", Color(red: 0.58, green: 0.65, blue: 0.65)),
         ("slate", Color(red: 0.38, green: 0.49, blue: 0.55)),
@@ -61,6 +61,12 @@ struct TaskColor {
     }
 
     static let paletteNames: [String] = palette.map(\.name)
+
+    /// Subset of palette used for automatic color cycling (excludes muted tones)
+    static let cycleNames: [String] = [
+        "teal", "blue", "indigo", "purple", "pink",
+        "red", "orange", "yellow", "green",
+    ]
 
     // RGB components for computing tints and shades
     private static let rgbValues: [String: (r: Double, g: Double, b: Double)] = [
@@ -121,15 +127,15 @@ struct TaskColor {
     }
 
     /// Pick the next color that differs from the given previous color.
-    /// Cycles through the palette in order, skipping the previous color.
+    /// Cycles through cycleNames in order, skipping brown/gray/slate.
     static func nextColor(after previousColorName: String?) -> String {
         guard let prev = previousColorName,
-              let prevIndex = paletteNames.firstIndex(of: prev)
+              let prevIndex = cycleNames.firstIndex(of: prev)
         else {
-            return paletteNames.randomElement() ?? "blue"
+            return "teal"
         }
-        let nextIndex = (prevIndex + 1) % paletteNames.count
-        return paletteNames[nextIndex]
+        let nextIndex = (prevIndex + 1) % cycleNames.count
+        return cycleNames[nextIndex]
     }
 }
 
