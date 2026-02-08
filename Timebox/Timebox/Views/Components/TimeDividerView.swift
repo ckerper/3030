@@ -30,10 +30,16 @@ struct TimeDividerView: View {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 18))
                     .foregroundColor(.orange)
+                    .frame(width: 44, height: 44) // generous hit area
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal)
         .padding(.vertical, 4)
+        // Capture all taps on the divider body so they don't propagate
+        // to parent gestures (only the X button should trigger removal)
+        .contentShape(Rectangle())
     }
 }
 

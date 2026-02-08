@@ -92,6 +92,7 @@ struct ContentView: View {
         }
         .onAppear {
             timerVM.configure(taskList: taskListVM, settings: settings)
+            taskListVM.timerVM = timerVM
             if !taskListVM.taskList.tasks.isEmpty {
                 timerVM.restoreState()
                 // If no persisted state was restored, just load the first task
@@ -103,14 +104,25 @@ struct ContentView: View {
         .onChange(of: taskListVM.taskList.tasks) { _, _ in
             timerVM.syncToFirstPending()
         }
-        .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .background || newPhase == .inactive {
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            switch newPhase {
+            case .background:
                 timerVM.persistState()
-            } else if newPhase == .active {
+            case .inactive:
+                // Only persist when leaving active (going to background).
+                // Do NOT persist when returning from background (.background → .inactive)
+                // because that overwrites the saved timestamp with "now" and erases
+                // the elapsed time the timer should have counted while suspended.
+                if oldPhase == .active {
+                    timerVM.persistState()
+                }
+            case .active:
                 // Re-sync on return to foreground (timer may have been counting)
                 if timerVM.activeTaskId != nil {
                     timerVM.restoreState()
                 }
+            @unknown default:
+                break
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .iCloudDataDidChange)) { _ in }
@@ -148,8 +160,8 @@ struct ContentView: View {
             // Undo/Redo
             HStack(spacing: 4) {
                 Button {
-                    taskListVM.undo()
-                    timerVM.syncAfterUndo(taskListVM: taskListVM)
+                    let restoredTimer = taskListVM.undo()
+                    timerVM.syncAfterUndo(taskListVM: taskListVM, restoredTimerState: restoredTimer)
                 } label: {
                     Image(systemName: "arrow.uturn.backward")
                         .font(.system(size: 18))
@@ -158,8 +170,8 @@ struct ContentView: View {
                 .disabled(!taskListVM.undoManager.canUndo)
 
                 Button {
-                    taskListVM.redo()
-                    timerVM.syncToFirstPending()
+                    let restoredTimer = taskListVM.redo()
+                    timerVM.syncAfterUndo(taskListVM: taskListVM, restoredTimerState: restoredTimer)
                 } label: {
                     Image(systemName: "arrow.uturn.forward")
                         .font(.system(size: 18))

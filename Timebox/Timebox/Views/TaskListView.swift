@@ -40,12 +40,19 @@ struct TaskListView: View {
                 pendingTasksSection
 
                 // MARK: - Divider at end if applicable
-                if let divIdx = taskListVM.taskList.dividerIndex,
-                   divIdx == taskListVM.pendingTasks.count {
-                    TimeDividerView {
-                        taskListVM.removeDivider()
+                // Only show end-of-list divider if it wasn't already rendered
+                // inside the ForEach (which renders when dividerIndex matches
+                // a pending task's full-array index).
+                if let divIdx = taskListVM.taskList.dividerIndex {
+                    let alreadyRendered = taskListVM.pendingTasks.contains { task in
+                        taskListVM.taskList.tasks.firstIndex(where: { $0.id == task.id }) == divIdx
                     }
-                    .listRowSeparator(.hidden)
+                    if !alreadyRendered {
+                        TimeDividerView {
+                            taskListVM.removeDivider()
+                        }
+                        .listRowSeparator(.hidden)
+                    }
                 }
 
                 // Auto-loop indicator
@@ -73,6 +80,7 @@ struct TaskListView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .scrollBounceBehavior(.basedOnSize)
         }
         .confirmationDialog("Clear All Tasks?", isPresented: $showClearAllConfirm) {
             Button("Clear All", role: .destructive) {
@@ -93,6 +101,19 @@ struct TaskListView: View {
         .sheet(item: $editingTask) { task in
             TaskEditView(task: task) { updated in
                 taskListVM.updateTask(updated)
+                // If the edited task is the active timer task, overwrite the timer
+                // with the new duration so the edit fully takes effect.
+                if updated.id == timerVM.activeTaskId {
+                    timerVM.remainingTime = updated.duration
+                    timerVM.totalDuration = updated.duration
+                    timerVM.overtimeElapsed = 0
+                    timerVM.isOvertime = false
+                    timerVM.savedRemainingTimes.removeValue(forKey: updated.id)
+                    timerVM.persistState()
+                } else {
+                    // Clear any saved remaining time so it uses the new planned duration
+                    timerVM.savedRemainingTimes.removeValue(forKey: updated.id)
+                }
             }
         }
         .sheet(isPresented: $showAddTask) {

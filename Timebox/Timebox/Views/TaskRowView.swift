@@ -54,7 +54,7 @@ struct TaskRowView: View {
                     }
                 }
 
-                // Row 2: timestamp ... - [duration] + menu
+                // Row 2: timestamp ... - [duration] + ... menu
                 HStack(spacing: 0) {
                     if showTimes, let start = projectedStart, let end = projectedEnd {
                         Text(TimeFormatting.formatCompactTimeRange(start: start, end: end))
@@ -97,6 +97,8 @@ struct TaskRowView: View {
                         .buttonStyle(.plain)
                     }
 
+                    Spacer(minLength: 4)
+
                     // Menu button — aligned under checkmark
                     Button(action: onMenu) {
                         Image(systemName: "ellipsis")
@@ -106,7 +108,6 @@ struct TaskRowView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .padding(.leading, 2)
                 }
             }
         }

@@ -299,10 +299,44 @@ class TimerViewModel: ObservableObject {
 
     // MARK: - Undo Sync
 
-    func syncAfterUndo(taskListVM: TaskListViewModel) {
-        // After undo, the first pending task may have changed.
-        // Just re-sync to whatever is now first.
-        syncToFirstPending()
+    /// Capture the current timer state for undo snapshots.
+    func captureTimerSnapshot() -> TaskUndoManager.TimerSnapshot {
+        TaskUndoManager.TimerSnapshot(
+            activeTaskId: activeTaskId,
+            remainingTime: remainingTime,
+            totalDuration: totalDuration,
+            isOvertime: isOvertime,
+            overtimeElapsed: overtimeElapsed,
+            isRunning: isRunning,
+            savedRemainingTimes: savedRemainingTimes
+        )
+    }
+
+    /// Restore timer state from an undo/redo snapshot.
+    func restoreTimerSnapshot(_ snapshot: TaskUndoManager.TimerSnapshot) {
+        let wasRunning = isRunning
+        if isRunning { pause() }
+
+        activeTaskId = snapshot.activeTaskId
+        remainingTime = snapshot.remainingTime
+        totalDuration = snapshot.totalDuration
+        isOvertime = snapshot.isOvertime
+        overtimeElapsed = snapshot.overtimeElapsed
+        savedRemainingTimes = snapshot.savedRemainingTimes
+
+        if snapshot.isRunning || wasRunning {
+            start()
+        }
+        persistState()
+    }
+
+    func syncAfterUndo(taskListVM: TaskListViewModel, restoredTimerState: TaskUndoManager.TimerSnapshot? = nil) {
+        if let timerState = restoredTimerState {
+            restoreTimerSnapshot(timerState)
+        } else {
+            // No saved timer state — re-sync to whatever is now first.
+            syncToFirstPending()
+        }
     }
 
     // MARK: - State Persistence (survive app close/reopen)
@@ -329,6 +363,11 @@ class TimerViewModel: ObservableObject {
     }
 
     func restoreState() {
+        // Cancel any existing timer to avoid race conditions with a stale
+        // Timer.publish that resumes firing when the app becomes active.
+        timer?.cancel()
+        timer = nil
+
         let defaults = UserDefaults.standard
 
         // Restore savedRemainingTimes

@@ -269,32 +269,44 @@ class TaskListViewModel: ObservableObject {
 
     // MARK: - Undo/Redo
 
+    /// Optional reference to timer VM for capturing timer state in undo snapshots.
+    weak var timerVM: TimerViewModel?
+
     private func saveUndoState(description: String) {
         undoManager.saveState(
             tasks: taskList.tasks,
             dividerIndex: taskList.dividerIndex,
-            description: description
+            description: description,
+            timerState: timerVM?.captureTimerSnapshot()
         )
     }
 
-    func undo() {
+    func undo() -> TaskUndoManager.TimerSnapshot? {
+        let currentTimerState = timerVM?.captureTimerSnapshot()
         if let snapshot = undoManager.undo(
             currentTasks: taskList.tasks,
-            currentDivider: taskList.dividerIndex
+            currentDivider: taskList.dividerIndex,
+            currentTimerState: currentTimerState
         ) {
             taskList.tasks = snapshot.tasks
             taskList.dividerIndex = snapshot.dividerIndex
+            return snapshot.timerState
         }
+        return nil
     }
 
-    func redo() {
+    func redo() -> TaskUndoManager.TimerSnapshot? {
+        let currentTimerState = timerVM?.captureTimerSnapshot()
         if let snapshot = undoManager.redo(
             currentTasks: taskList.tasks,
-            currentDivider: taskList.dividerIndex
+            currentDivider: taskList.dividerIndex,
+            currentTimerState: currentTimerState
         ) {
             taskList.tasks = snapshot.tasks
             taskList.dividerIndex = snapshot.dividerIndex
+            return snapshot.timerState
         }
+        return nil
     }
 
     // MARK: - Computed Properties (#5: total time uses timer remaining for active task)
