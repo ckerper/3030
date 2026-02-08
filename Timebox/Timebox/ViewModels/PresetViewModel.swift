@@ -2,6 +2,11 @@ import Foundation
 
 class PresetViewModel: ObservableObject {
     @Published var presets: [Preset] = []
+    @Published private(set) var undoStack: [[Preset]] = []
+    @Published private(set) var redoStack: [[Preset]] = []
+
+    var canUndo: Bool { !undoStack.isEmpty }
+    var canRedo: Bool { !redoStack.isEmpty }
 
     private let storageKey = "presets"
 
@@ -30,6 +35,27 @@ class PresetViewModel: ObservableObject {
         return []
     }
 
+    // MARK: - Undo/Redo
+
+    private func pushUndo() {
+        undoStack.append(presets)
+        redoStack.removeAll()
+    }
+
+    func performUndo() {
+        guard let previous = undoStack.popLast() else { return }
+        redoStack.append(presets)
+        presets = previous
+        save()
+    }
+
+    func performRedo() {
+        guard let next = redoStack.popLast() else { return }
+        undoStack.append(presets)
+        presets = next
+        save()
+    }
+
     // MARK: - CRUD
 
     func addPreset(_ preset: Preset) {
@@ -52,12 +78,20 @@ class PresetViewModel: ObservableObject {
     }
 
     func deletePreset(id: UUID) {
+        pushUndo()
         presets.removeAll { $0.id == id }
         save()
     }
 
     func deletePresets(at offsets: IndexSet) {
+        pushUndo()
         presets.remove(atOffsets: offsets)
+        save()
+    }
+
+    func movePresets(from source: IndexSet, to destination: Int) {
+        pushUndo()
+        presets.move(fromOffsets: source, toOffset: destination)
         save()
     }
 }

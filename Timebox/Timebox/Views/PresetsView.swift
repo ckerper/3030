@@ -7,8 +7,6 @@ struct PresetsView: View {
 
     @State private var showSavePreset = false
     @State private var presetName = ""
-    @State private var selectedPreset: Preset?
-    @State private var showLoadOptions = false
     @State private var editingPreset: Preset?
     @State private var showCreateNew = false
 
@@ -56,8 +54,8 @@ struct PresetsView: View {
                         ForEach(presetVM.presets) { preset in
                             presetRow(preset)
                         }
-                        .onDelete { offsets in
-                            presetVM.deletePresets(at: offsets)
+                        .onMove { source, destination in
+                            presetVM.movePresets(from: source, to: destination)
                         }
                     }
                 }
@@ -72,6 +70,28 @@ struct PresetsView: View {
                         Image(systemName: "timer")
                             .font(.system(size: 18))
                             .foregroundColor(.primary)
+                    }
+                }
+
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 12) {
+                        Button {
+                            presetVM.performUndo()
+                        } label: {
+                            Image(systemName: "arrow.uturn.backward")
+                                .font(.system(size: 16))
+                                .foregroundColor(presetVM.canUndo ? .primary : .primary.opacity(0.25))
+                        }
+                        .disabled(!presetVM.canUndo)
+
+                        Button {
+                            presetVM.performRedo()
+                        } label: {
+                            Image(systemName: "arrow.uturn.forward")
+                                .font(.system(size: 16))
+                                .foregroundColor(presetVM.canRedo ? .primary : .primary.opacity(0.25))
+                        }
+                        .disabled(!presetVM.canRedo)
                     }
                 }
             }
@@ -91,27 +111,12 @@ struct PresetsView: View {
             } message: {
                 Text("Enter a name for this preset.")
             }
-            .confirmationDialog(
-                "Load Preset",
-                isPresented: $showLoadOptions,
-                presenting: selectedPreset
-            ) { preset in
-                Button("Load to Top") {
-                    taskListVM.loadPresetToTop(preset)
-                    onReturn()
-                }
-                Button("Load to Bottom") {
-                    taskListVM.loadPresetToBottom(preset)
-                    onReturn()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: { preset in
-                Text("How would you like to load \"\(preset.name)\"?")
-            }
             .sheet(item: $editingPreset) { preset in
-                PresetEditView(preset: preset) { updated in
+                PresetEditView(preset: preset, onSave: { updated in
                     presetVM.updatePreset(updated)
-                }
+                }, onDelete: {
+                    presetVM.deletePreset(id: preset.id)
+                })
             }
             .sheet(isPresented: $showCreateNew) {
                 PresetBuilderView { newPreset in
@@ -122,10 +127,7 @@ struct PresetsView: View {
     }
 
     private func presetRow(_ preset: Preset) -> some View {
-        Button {
-            selectedPreset = preset
-            showLoadOptions = true
-        } label: {
+        HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(preset.name)
                     .font(.body)
@@ -154,21 +156,44 @@ struct PresetsView: View {
                 }
             }
             .padding(.vertical, 4)
-        }
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
-                presetVM.deletePreset(id: preset.id)
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        }
-        .swipeActions(edge: .leading) {
-            Button {
+            .contentShape(Rectangle())
+            .onTapGesture {
                 editingPreset = preset
-            } label: {
-                Label("Edit", systemImage: "pencil")
             }
-            .tint(.blue)
+
+            Spacer()
+
+            HStack(spacing: 8) {
+                Button {
+                    taskListVM.loadPresetToTop(preset)
+                    onReturn()
+                } label: {
+                    Text("Top")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.accentColor.opacity(0.15))
+                        .foregroundColor(.accentColor)
+                        .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    taskListVM.loadPresetToBottom(preset)
+                    onReturn()
+                } label: {
+                    Text("Bottom")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.accentColor.opacity(0.15))
+                        .foregroundColor(.accentColor)
+                        .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 }
@@ -179,6 +204,7 @@ struct PresetEditView: View {
     @Environment(\.dismiss) private var dismiss
     @State var preset: Preset
     let onSave: (Preset) -> Void
+    var onDelete: (() -> Void)?
 
     @State private var showAddTask = false
     @State private var editingTask: TaskItem?
@@ -205,6 +231,13 @@ struct PresetEditView: View {
         guard let next = redoStack.popLast() else { return }
         undoStack.append(preset.tasks)
         preset.tasks = next
+    }
+
+    private func autoColorTasks() {
+        pushUndo()
+        for i in preset.tasks.indices {
+            preset.tasks[i].colorName = TaskColor.paletteNames[i % TaskColor.paletteNames.count]
+        }
     }
 
     var body: some View {
@@ -258,6 +291,28 @@ struct PresetEditView: View {
                         Spacer()
                         Text(preset.formattedTotalDuration)
                             .foregroundColor(.primary.opacity(0.6))
+                    }
+                }
+
+                if !preset.tasks.isEmpty {
+                    Section {
+                        Button {
+                            autoColorTasks()
+                        } label: {
+                            Label("Auto Color", systemImage: "paintpalette")
+                        }
+                    }
+                }
+
+                if onDelete != nil {
+                    Section {
+                        Button(role: .destructive) {
+                            onDelete?()
+                            dismiss()
+                        } label: {
+                            Label("Delete Preset", systemImage: "trash")
+                                .foregroundColor(.red)
+                        }
                     }
                 }
             }
