@@ -23,24 +23,15 @@ struct CalendarModeView: View {
         incrementOptions[selectedIncrementIndex]
     }
 
-    // Adaptive background
+    // Static background — active task color is shown only in the compact timer bar
     private var backgroundColor: Color {
-        if timerVM.isRunning,
-           let _ = timerVM.isTimingEvent ? timerVM.currentEvent : nil {
-            return TaskColor.adaptiveBackground(for: timerVM.currentColor, isDark: colorScheme == .dark)
-        }
-        if timerVM.isRunning || timerVM.isOvertime,
-           let _ = timerVM.currentTask {
-            return TaskColor.adaptiveBackground(for: timerVM.currentColor, isDark: colorScheme == .dark)
-        }
-        return Color(.systemGroupedBackground)
+        Color(.systemGroupedBackground)
     }
 
     var body: some View {
         ZStack {
             backgroundColor
                 .ignoresSafeArea()
-                .animation(.easeInOut(duration: 0.5), value: timerVM.currentColor)
 
             VStack(spacing: 0) {
                 // Top toolbar
@@ -197,10 +188,13 @@ struct CalendarModeView: View {
     // MARK: - Compact Timer Bar
 
     private var compactTimerBar: some View {
-        HStack(spacing: 8) {
+        let activeColor = TaskColor.color(for: timerVM.currentColor)
+        let isActive = timerVM.isRunning || timerVM.isOvertime
+
+        return HStack(spacing: 8) {
             // Color dot
             Circle()
-                .fill(TaskColor.color(for: timerVM.currentColor))
+                .fill(activeColor)
                 .frame(width: 10, height: 10)
 
             // Title
@@ -208,6 +202,7 @@ struct CalendarModeView: View {
                 .font(.subheadline)
                 .fontWeight(.semibold)
                 .lineLimit(1)
+                .foregroundColor(isActive ? activeColor : .primary)
 
             Spacer()
 
@@ -225,7 +220,7 @@ struct CalendarModeView: View {
                 .font(.title3)
                 .fontWeight(.bold)
                 .monospacedDigit()
-                .foregroundColor(timerVM.isOvertime ? .red : .primary)
+                .foregroundColor(timerVM.isOvertime ? .red : isActive ? activeColor : .primary)
 
             // Plus button
             Button {
@@ -250,7 +245,7 @@ struct CalendarModeView: View {
             } label: {
                 Image(systemName: timerVM.isRunning ? "pause.circle.fill" : "play.circle.fill")
                     .font(.system(size: 28))
-                    .foregroundColor(TaskColor.color(for: timerVM.currentColor))
+                    .foregroundColor(activeColor)
             }
 
             // Complete button
@@ -276,7 +271,11 @@ struct CalendarModeView: View {
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(TaskColor.color(for: timerVM.currentColor).opacity(0.15))
+                .fill(activeColor.opacity(isActive ? 0.25 : 0.10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(activeColor.opacity(isActive ? 0.5 : 0), lineWidth: 1)
+                )
         )
         .padding(.horizontal, 8)
         .padding(.bottom, 4)
