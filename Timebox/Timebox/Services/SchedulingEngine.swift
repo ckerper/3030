@@ -121,23 +121,21 @@ struct SchedulingEngine {
             }
         }
 
-        // Insert any remaining events that fall after all tasks
+        // Insert any remaining events (including overlapping ones at the same time)
         for event in remainingEvents {
             let eventEnd = event.startTime.addingTimeInterval(event.plannedDuration)
-            if cursor < eventEnd {
-                if event.startTime > cursor {
-                    slots.append(.freeTime(
-                        startTime: cursor,
-                        endTime: event.startTime
-                    ))
-                }
-                slots.append(.event(
-                    eventId: event.id,
-                    startTime: event.startTime,
-                    endTime: eventEnd
+            if event.startTime > cursor {
+                slots.append(.freeTime(
+                    startTime: cursor,
+                    endTime: event.startTime
                 ))
-                cursor = eventEnd
             }
+            slots.append(.event(
+                eventId: event.id,
+                startTime: event.startTime,
+                endTime: eventEnd
+            ))
+            cursor = max(cursor, eventEnd)
         }
 
         return slots
