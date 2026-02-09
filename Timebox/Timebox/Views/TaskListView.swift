@@ -81,7 +81,7 @@ struct TaskListView: View {
             .scrollBounceBehavior(.basedOnSize)
         }
         .sheet(item: $editingTask) { task in
-            TaskEditView(task: task) { updated in
+            TaskEditView(task: task, onSave: { updated in
                 taskListVM.updateTask(updated)
                 // If the edited task is the active timer task, overwrite the timer
                 // with the new duration so the edit fully takes effect.
@@ -96,7 +96,9 @@ struct TaskListView: View {
                     // Clear any saved remaining time so it uses the new planned duration
                     timerVM.savedRemainingTimes.removeValue(forKey: updated.id)
                 }
-            }
+            }, onDelete: {
+                taskListVM.removeTask(id: task.id)
+            })
         }
         .sheet(isPresented: $showAddTask) {
             AddTaskView(insertIndex: addTaskInsertIndex, lastColor: taskListVM.lastTaskColor) { tasks in

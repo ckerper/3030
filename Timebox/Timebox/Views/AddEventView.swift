@@ -16,8 +16,21 @@ struct AddEventView: View {
     }()
     @State private var durationMinutes: Double = 30
     @State private var selectedColor: String = "slate"
+    @State private var selectedDay: Int = 0 // -1 = yesterday, 0 = today, 1 = tomorrow
 
     private let durationOptions: [Double] = [15, 30, 45, 60, 90, 120]
+
+    /// Combine the selected day offset with the time-of-day from startTime
+    private var effectiveStartTime: Date {
+        let cal = Calendar.current
+        let todayStart = cal.startOfDay(for: Date())
+        guard let targetDay = cal.date(byAdding: .day, value: selectedDay, to: todayStart) else {
+            return startTime
+        }
+        let hour = cal.component(.hour, from: startTime)
+        let minute = cal.component(.minute, from: startTime)
+        return cal.date(bySettingHour: hour, minute: minute, second: 0, of: targetDay) ?? startTime
+    }
 
     var body: some View {
         NavigationView {
@@ -27,8 +40,15 @@ struct AddEventView: View {
                 }
 
                 Section("Start Time") {
+                    Picker("Day", selection: $selectedDay) {
+                        Text("Yesterday").tag(-1)
+                        Text("Today").tag(0)
+                        Text("Tomorrow").tag(1)
+                    }
+                    .pickerStyle(.segmented)
+
                     DatePicker(
-                        "Starts at",
+                        "Time",
                         selection: $startTime,
                         displayedComponents: .hourAndMinute
                     )
@@ -125,12 +145,17 @@ struct AddEventView: View {
                     HStack {
                         Spacer()
                         VStack(spacing: 4) {
-                            Text(TimeFormatting.formatClockTime(startTime))
+                            if selectedDay != 0 {
+                                Text(selectedDay == -1 ? "Yesterday" : "Tomorrow")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Text(TimeFormatting.formatClockTime(effectiveStartTime))
                                 .font(.headline)
                             Text("to")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            Text(TimeFormatting.formatClockTime(startTime.addingTimeInterval(durationMinutes * 60)))
+                            Text(TimeFormatting.formatClockTime(effectiveStartTime.addingTimeInterval(durationMinutes * 60)))
                                 .font(.headline)
                         }
                         Spacer()
@@ -149,7 +174,7 @@ struct AddEventView: View {
                     Button("Add") {
                         let event = Event(
                             title: title.isEmpty ? "Event" : title,
-                            startTime: startTime,
+                            startTime: effectiveStartTime,
                             plannedDuration: durationMinutes * 60,
                             colorName: selectedColor
                         )

@@ -62,14 +62,6 @@ struct CalendarModeView: View {
                         onEditEvent: { event in editingEvent = event },
                         onEditTask: { task in editingTask = task }
                     )
-
-                    // Floating progress bar at bottom
-                    FloatingProgressBar(
-                        timerVM: timerVM,
-                        dayPlanVM: dayPlanVM
-                    )
-                    .padding(.horizontal, 8)
-                    .padding(.bottom, 4)
                 }
             }
         }
@@ -100,9 +92,11 @@ struct CalendarModeView: View {
             )
         }
         .sheet(item: $editingTask) { task in
-            TaskEditView(task: task) { updated in
+            TaskEditView(task: task, onSave: { updated in
                 dayPlanVM.updateTask(updated)
-            }
+            }, onDelete: {
+                dayPlanVM.removeTask(id: task.id)
+            })
         }
     }
 
@@ -187,11 +181,11 @@ struct CalendarModeView: View {
     // MARK: - Compact Timer Bar
 
     private var compactTimerBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             // Color dot
             Circle()
                 .fill(TaskColor.color(for: timerVM.currentColor))
-                .frame(width: 12, height: 12)
+                .frame(width: 10, height: 10)
 
             // Title
             Text(timerVM.currentTitle)
@@ -201,12 +195,30 @@ struct CalendarModeView: View {
 
             Spacer()
 
+            // Minus button
+            Button {
+                timerVM.adjustTime(by: -currentIncrement)
+            } label: {
+                Image(systemName: "minus.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundColor(.primary.opacity(0.5))
+            }
+
             // Time display
             Text(timerVM.displayTime)
                 .font(.title3)
                 .fontWeight(.bold)
                 .monospacedDigit()
                 .foregroundColor(timerVM.isOvertime ? .red : .primary)
+
+            // Plus button
+            Button {
+                timerVM.adjustTime(by: currentIncrement)
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundColor(.primary.opacity(0.5))
+            }
 
             // Play/pause button
             Button {
@@ -221,7 +233,7 @@ struct CalendarModeView: View {
                 }
             } label: {
                 Image(systemName: timerVM.isRunning ? "pause.circle.fill" : "play.circle.fill")
-                    .font(.system(size: 30))
+                    .font(.system(size: 28))
                     .foregroundColor(TaskColor.color(for: timerVM.currentColor))
             }
 
@@ -231,7 +243,7 @@ struct CalendarModeView: View {
                     timerVM.completeCurrentEvent()
                 } label: {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 26))
+                        .font(.system(size: 24))
                         .foregroundColor(.green)
                 }
             } else if timerVM.activeTaskId != nil {
@@ -239,13 +251,13 @@ struct CalendarModeView: View {
                     timerVM.completeCurrentTaskCalendar()
                 } label: {
                     Image(systemName: "checkmark.circle")
-                        .font(.system(size: 26))
+                        .font(.system(size: 24))
                         .foregroundColor(.green)
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(TaskColor.color(for: timerVM.currentColor).opacity(0.15))

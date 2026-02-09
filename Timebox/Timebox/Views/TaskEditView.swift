@@ -4,15 +4,17 @@ struct TaskEditView: View {
     @Environment(\.dismiss) private var dismiss
     @State var task: TaskItem
     let onSave: (TaskItem) -> Void
+    var onDelete: (() -> Void)?
 
     @State private var titleText: String = ""
     @State private var hours: Int = 0
     @State private var minutes: Int = 30
     @State private var seconds: Int = 0
 
-    init(task: TaskItem, onSave: @escaping (TaskItem) -> Void) {
+    init(task: TaskItem, onSave: @escaping (TaskItem) -> Void, onDelete: (() -> Void)? = nil) {
         self._task = State(initialValue: task)
         self.onSave = onSave
+        self.onDelete = onDelete
 
         let totalSeconds = Int(task.duration)
         self._hours = State(initialValue: totalSeconds / 3600)
@@ -95,6 +97,22 @@ struct TaskEditView: View {
                 Section("Icon") {
                     IconPickerView(selectedIcon: $task.icon)
                         .frame(height: 300)
+                }
+
+                // Delete
+                if let onDelete {
+                    Section {
+                        Button(role: .destructive) {
+                            onDelete()
+                            dismiss()
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Text("Delete Task")
+                                Spacer()
+                            }
+                        }
+                    }
                 }
             }
             .navigationTitle("Edit Task")

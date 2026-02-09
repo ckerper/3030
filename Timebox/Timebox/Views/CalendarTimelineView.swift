@@ -35,10 +35,21 @@ struct CalendarTimelineView: View {
             ScrollView(.vertical, showsIndicators: true) {
                 ZStack(alignment: .topLeading) {
                     // Invisible spacer to establish the full scrollable content height.
-                    // Without this, .offset() views don't contribute to layout size
-                    // and the ScrollView clips/bounces incorrectly.
                     Color.clear
                         .frame(height: totalHeight)
+
+                    // Scroll anchor at current time position.
+                    // Uses VStack + Spacer so the anchor's LAYOUT frame is at
+                    // the right y position (unlike .offset() which is visual-only
+                    // and doesn't affect where scrollTo targets).
+                    VStack(spacing: 0) {
+                        Color.clear.frame(height: max(0, yPosition(for: Date())))
+                        Color.clear
+                            .frame(width: 1, height: 1)
+                            .id("currentTimeAnchor")
+                        Spacer(minLength: 0)
+                    }
+                    .frame(height: totalHeight)
 
                     // Hour grid lines and labels
                     hourGrid
@@ -48,16 +59,15 @@ struct CalendarTimelineView: View {
                         slotView(for: slot)
                     }
 
-                    // Current time indicator
+                    // Current time indicator (visual only, red dot + line)
                     currentTimeIndicator
                 }
                 .padding(.leading, 52)
                 .padding(.trailing, 8)
             }
             .onAppear {
-                // Scroll to current time, positioned 1/3 from the top of the visible area
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    proxy.scrollTo("currentTime", anchor: UnitPoint(x: 0.5, y: 0.33))
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    proxy.scrollTo("currentTimeAnchor", anchor: UnitPoint(x: 0.5, y: 0.33))
                 }
             }
         }
@@ -106,59 +116,66 @@ struct CalendarTimelineView: View {
     @ViewBuilder
     private func slotView(for slot: TimelineSlot) -> some View {
         let y = yPosition(for: slot.startTime)
-        let height = max(pointsPerHour / 6, CGFloat(slot.duration / 3600) * pointsPerHour)
+        let height = max(2, CGFloat(slot.duration / 3600) * pointsPerHour)
 
         switch slot {
-        case .taskFragment(let taskId, _, _, let fragmentIndex, _):
+        case .taskFragment(let taskId, let startTime, let endTime, let fragmentIndex, let slotDuration):
             if let task = dayPlanVM.task(for: taskId) {
-                taskSlotView(task: task, fragmentIndex: fragmentIndex, height: height)
-                    .offset(y: y)
+                let isFragment = fragmentIndex > 0 || abs(slotDuration - task.duration) > 1
+                taskSlotView(
+                    task: task,
+                    isFragment: isFragment,
+                    height: height,
+                    slotStart: startTime,
+                    slotEnd: endTime
+                )
+                .offset(y: y)
             }
 
-        case .event(let eventId, _, _):
+        case .event(let eventId, let startTime, let endTime):
             if let event = dayPlanVM.event(for: eventId) {
-                eventSlotView(event: event, height: height)
+                eventSlotView(event: event, height: height, slotStart: startTime, slotEnd: endTime)
                     .offset(y: y)
             }
 
         case .freeTime(_, _):
-            freeTimeSlotView(height: height)
-                .offset(y: y)
+            EmptyView()
         }
     }
 
-    private func taskSlotView(task: TaskItem, fragmentIndex: Int, height: CGFloat) -> some View {
-        HStack(spacing: 0) {
+    private func taskSlotView(task: TaskItem, isFragment: Bool, height: CGFloat, slotStart: Date, slotEnd: Date) -> some View {
+        HStack(spacing: 3) {
             // Color bar
-            RoundedRectangle(cornerRadius: 2)
+            RoundedRectangle(cornerRadius: 1.5)
                 .fill(task.color)
-                .frame(width: 4)
+                .frame(width: 3)
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    if !task.icon.isEmpty {
-                        if task.icon.count <= 2 && task.icon.unicodeScalars.allSatisfy({ $0.value > 127 }) {
-                            Text(task.icon).font(.caption)
-                        } else {
-                            Image(systemName: task.icon).font(.caption2)
-                        }
-                    }
-                    Text(fragmentIndex > 0 ? "\(task.title) (cont.)" : task.title)
-                        .font(.caption)
-                        .fontWeight(timerVM.activeTaskId == task.id ? .semibold : .regular)
-                        .lineLimit(1)
-                }
-
-                if height > 30 {
-                    Text(task.formattedDuration)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+            // Icon
+            if !task.icon.isEmpty {
+                if task.icon.count <= 2 && task.icon.unicodeScalars.allSatisfy({ $0.value > 127 }) {
+                    Text(task.icon).font(.system(size: 10))
+                } else {
+                    Image(systemName: task.icon).font(.system(size: 9))
                 }
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
 
-            Spacer()
+            // Title
+            Text(task.title)
+                .font(.system(size: 11))
+                .fontWeight(timerVM.activeTaskId == task.id ? .semibold : .regular)
+                .lineLimit(1)
+
+            // Duration (with * if fragment)
+            Text(task.formattedDuration + (isFragment ? "*" : ""))
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+
+            // Fragment time range
+            Text(TimeFormatting.formatCompactTimeRange(start: slotStart, end: slotEnd))
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+
+            Spacer(minLength: 0)
 
             // Complete button
             if !task.isCompleted && timerVM.activeTaskId == task.id {
@@ -166,58 +183,53 @@ struct CalendarTimelineView: View {
                     timerVM.completeCurrentTaskCalendar()
                 } label: {
                     Image(systemName: "checkmark.circle")
-                        .font(.body)
+                        .font(.system(size: 14))
                         .foregroundColor(task.color)
                 }
-                .padding(.trailing, 8)
             }
         }
-        .frame(height: height)
+        .padding(.horizontal, 3)
+        .padding(.vertical, 1)
+        .frame(height: height, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 4)
                 .fill(task.color.opacity(task.isCompleted ? 0.15 : 0.25))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 4)
                 .stroke(
                     timerVM.activeTaskId == task.id ? task.color : Color.clear,
-                    lineWidth: timerVM.activeTaskId == task.id ? 2 : 0
+                    lineWidth: timerVM.activeTaskId == task.id ? 1.5 : 0
                 )
         )
         .opacity(task.isCompleted ? 0.6 : 1.0)
+        .clipped()
         .onTapGesture {
             onEditTask(task)
         }
     }
 
-    private func eventSlotView(event: Event, height: CGFloat) -> some View {
-        HStack(spacing: 0) {
-            // Color bar (dashed for events)
-            RoundedRectangle(cornerRadius: 2)
+    private func eventSlotView(event: Event, height: CGFloat, slotStart: Date, slotEnd: Date) -> some View {
+        HStack(spacing: 3) {
+            // Color bar
+            RoundedRectangle(cornerRadius: 1.5)
                 .fill(event.color)
-                .frame(width: 4)
+                .frame(width: 3)
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Image(systemName: "calendar")
-                        .font(.caption2)
-                        .foregroundColor(event.color)
-                    Text(event.title)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .lineLimit(1)
-                }
+            Image(systemName: "calendar")
+                .font(.system(size: 9))
+                .foregroundColor(event.color)
 
-                if height > 30 {
-                    Text(event.formattedTimeRange)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
+            Text(event.title)
+                .font(.system(size: 11))
+                .fontWeight(.semibold)
+                .lineLimit(1)
 
-            Spacer()
+            Text(TimeFormatting.formatCompactTimeRange(start: slotStart, end: slotEnd))
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+
+            Spacer(minLength: 0)
 
             // Complete button for active event
             if !event.isCompleted && timerVM.activeEventId == event.id {
@@ -225,31 +237,27 @@ struct CalendarTimelineView: View {
                     timerVM.completeCurrentEvent()
                 } label: {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.body)
+                        .font(.system(size: 14))
                         .foregroundColor(event.color)
                 }
-                .padding(.trailing, 8)
             }
         }
-        .frame(height: height)
+        .padding(.horizontal, 3)
+        .padding(.vertical, 1)
+        .frame(height: height, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 4)
                 .fill(event.color.opacity(event.isCompleted ? 0.1 : 0.2))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(event.color.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(event.color.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
                 )
         )
         .opacity(event.isCompleted ? 0.5 : 1.0)
+        .clipped()
         .onTapGesture {
             onEditEvent(event)
         }
-    }
-
-    private func freeTimeSlotView(height: CGFloat) -> some View {
-        Rectangle()
-            .fill(Color.clear)
-            .frame(height: height)
     }
 
     // MARK: - Current Time Indicator
@@ -266,7 +274,6 @@ struct CalendarTimelineView: View {
                 .frame(height: 1.5)
         }
         .offset(y: y - 4)
-        .id("currentTime")
     }
 
     // MARK: - Helpers
