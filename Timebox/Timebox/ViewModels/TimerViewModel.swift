@@ -399,11 +399,15 @@ class TimerViewModel: ObservableObject {
         isTimingEvent = false
         activeEventId = nil
 
-        // Resume the first pending task
-        syncToFirstPendingCalendar()
-
-        if settings?.autoStartNextTask == true {
-            start()
+        // Catch up on any other events that were missed while this one ran overtime
+        if let nextActiveEvent = dayPlanVM.catchUpMissedEvents() {
+            startEvent(nextActiveEvent)
+        } else {
+            // No active event — resume the first pending task
+            syncToFirstPendingCalendar()
+            if settings?.autoStartNextTask == true {
+                start()
+            }
         }
 
         dayPlanVM.recomputeTimeline()
@@ -646,23 +650,27 @@ class TimerViewModel: ObservableObject {
             if eventExists && wasRunning {
                 let elapsed = Date().timeIntervalSince1970 - savedTimestamp
 
-                if wasOvertime {
-                    let totalOvertime = savedOvertime + elapsed
-                    // Check if the event's planned end time has long passed — auto-complete it
-                    // (e.g. a subsequent event should have stopped this one)
-                    if let event = dayPlanVM.dayPlan.events.first(where: { $0.id == savedEventId }),
-                       Date() >= event.plannedEndTime {
-                        // Event should have ended — complete it and move on
-                        dayPlanVM.completeEvent(id: savedEventId)
+                // Check if the event's planned end time has passed — catch up on all missed events
+                if let event = dayPlanVM.dayPlan.events.first(where: { $0.id == savedEventId }),
+                   Date() >= event.plannedEndTime {
+                    // catchUpMissedEvents auto-completes past events (with correct end times)
+                    // and returns any event that should be active right now
+                    if let activeEvent = dayPlanVM.catchUpMissedEvents() {
+                        startEvent(activeEvent)
+                    } else {
                         isTimingEvent = false
                         activeEventId = nil
                         syncToFirstPendingCalendar()
                         if settings?.autoStartNextTask == true { start() }
-                        dayPlanVM.recomputeTimeline()
-                        persistState()
-                        return
                     }
-                    // Still in overtime but event hasn't ended yet by schedule
+                    dayPlanVM.recomputeTimeline()
+                    persistState()
+                    return
+                }
+
+                // Event is still within its planned time — restore the countdown
+                if wasOvertime {
+                    let totalOvertime = savedOvertime + elapsed
                     isTimingEvent = true
                     activeEventId = savedEventId
                     activeTaskId = nil
@@ -674,20 +682,7 @@ class TimerViewModel: ObservableObject {
                 } else {
                     let newRemaining = savedRemaining - elapsed
                     if newRemaining <= 0 {
-                        // Timer ran out while app was closed — check if event should be auto-completed
-                        if let event = dayPlanVM.dayPlan.events.first(where: { $0.id == savedEventId }),
-                           Date() >= event.plannedEndTime {
-                            // Event ended while app was closed — complete it and move on
-                            dayPlanVM.completeEvent(id: savedEventId)
-                            isTimingEvent = false
-                            activeEventId = nil
-                            syncToFirstPendingCalendar()
-                            if settings?.autoStartNextTask == true { start() }
-                            dayPlanVM.recomputeTimeline()
-                            persistState()
-                            return
-                        }
-                        // Crossed into overtime
+                        // Crossed into overtime but event hasn't ended by schedule yet
                         isTimingEvent = true
                         activeEventId = savedEventId
                         activeTaskId = nil
