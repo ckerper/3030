@@ -60,11 +60,12 @@ class DayPlanViewModel: ObservableObject {
     }
 
     private func load() -> DayPlan {
-        if let data = NSUbiquitousKeyValueStore.default.data(forKey: storageKey),
+        // Prefer UserDefaults (always reliable) over CloudKit (may have stale data on free accounts)
+        if let data = UserDefaults.standard.data(forKey: storageKey),
            let plan = try? JSONDecoder().decode(DayPlan.self, from: data) {
             return migrateIfNeeded(plan)
         }
-        if let data = UserDefaults.standard.data(forKey: storageKey),
+        if let data = NSUbiquitousKeyValueStore.default.data(forKey: storageKey),
            let plan = try? JSONDecoder().decode(DayPlan.self, from: data) {
             return migrateIfNeeded(plan)
         }
@@ -226,16 +227,20 @@ class DayPlanViewModel: ObservableObject {
 
     func addEvent(_ event: Event) {
         saveUndoState(description: "Add event")
-        dayPlan.events.append(event)
-        dayPlan.events.sort { $0.startTime < $1.startTime }
+        var updated = dayPlan
+        updated.events.append(event)
+        updated.events.sort { $0.startTime < $1.startTime }
+        dayPlan = updated
         recomputeTimeline()
     }
 
     func updateEvent(_ event: Event) {
         saveUndoState(description: "Edit event")
-        if let index = dayPlan.events.firstIndex(where: { $0.id == event.id }) {
-            dayPlan.events[index] = event
-            dayPlan.events.sort { $0.startTime < $1.startTime }
+        var updated = dayPlan
+        if let index = updated.events.firstIndex(where: { $0.id == event.id }) {
+            updated.events[index] = event
+            updated.events.sort { $0.startTime < $1.startTime }
+            dayPlan = updated
         }
         recomputeTimeline()
     }
