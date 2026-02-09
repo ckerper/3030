@@ -287,6 +287,28 @@ class DayPlanViewModel: ObservableObject {
         }
     }
 
+    /// Auto-complete any pending events whose planned end time has passed,
+    /// and return the event that should be active right now (if any).
+    func catchUpMissedEvents() -> Event? {
+        let now = Date()
+        var activeEvent: Event? = nil
+
+        for i in dayPlan.events.indices {
+            guard !dayPlan.events[i].isCompleted else { continue }
+
+            if dayPlan.events[i].plannedEndTime <= now {
+                // Event should have ended — auto-complete with its planned end time
+                dayPlan.events[i].isCompleted = true
+                dayPlan.events[i].actualEndTime = dayPlan.events[i].plannedEndTime
+            } else if dayPlan.events[i].startTime <= now {
+                // Event should be active right now
+                activeEvent = dayPlan.events[i]
+            }
+        }
+        recomputeTimeline()
+        return activeEvent
+    }
+
     /// Auto-finish a previous event when a new event starts.
     func autoFinishPreviousEvent(before eventId: UUID) {
         // Find events that are active (not completed) and start before this one
