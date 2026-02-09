@@ -39,6 +39,8 @@ class TimerViewModel: ObservableObject {
     private let kTimerOvertimeElapsed = "timer_overtimeElapsed"
     private let kTimerLastSaveDate = "timer_lastSaveDate"
     private let kTimerSavedRemainingTimes = "timer_savedRemainingTimes"
+    private let kTimerActiveEventId = "timer_activeEventId"
+    private let kTimerIsTimingEvent = "timer_isTimingEvent"
 
     // MARK: - Derived
 
@@ -587,6 +589,12 @@ class TimerViewModel: ObservableObject {
         } else {
             defaults.removeObject(forKey: kTimerActiveTaskId)
         }
+        if let id = activeEventId {
+            defaults.set(id.uuidString, forKey: kTimerActiveEventId)
+        } else {
+            defaults.removeObject(forKey: kTimerActiveEventId)
+        }
+        defaults.set(isTimingEvent, forKey: kTimerIsTimingEvent)
         defaults.set(remainingTime, forKey: kTimerRemainingTime)
         defaults.set(totalDuration, forKey: kTimerTotalDuration)
         defaults.set(isRunning, forKey: kTimerIsRunning)
@@ -618,17 +626,112 @@ class TimerViewModel: ObservableObject {
             }
         }
 
-        guard let idString = defaults.string(forKey: kTimerActiveTaskId),
-              let savedId = UUID(uuidString: idString) else {
-            return
-        }
-
         let savedRemaining = defaults.double(forKey: kTimerRemainingTime)
         let savedTotal = defaults.double(forKey: kTimerTotalDuration)
         let wasRunning = defaults.bool(forKey: kTimerIsRunning)
         let wasOvertime = defaults.bool(forKey: kTimerIsOvertime)
         let savedOvertime = defaults.double(forKey: kTimerOvertimeElapsed)
         let savedTimestamp = defaults.double(forKey: kTimerLastSaveDate)
+        let wasTimingEvent = defaults.bool(forKey: kTimerIsTimingEvent)
+
+        // --- Event restore path ---
+        if wasTimingEvent,
+           let eventIdString = defaults.string(forKey: kTimerActiveEventId),
+           let savedEventId = UUID(uuidString: eventIdString),
+           let dayPlanVM = dayPlanVM {
+
+            // Check if the event still exists and is pending
+            let eventExists = dayPlanVM.dayPlan.events.contains(where: { $0.id == savedEventId && !$0.isCompleted })
+
+            if eventExists && wasRunning {
+                let elapsed = Date().timeIntervalSince1970 - savedTimestamp
+
+                if wasOvertime {
+                    let totalOvertime = savedOvertime + elapsed
+                    // Check if the event's planned end time has long passed — auto-complete it
+                    // (e.g. a subsequent event should have stopped this one)
+                    if let event = dayPlanVM.dayPlan.events.first(where: { $0.id == savedEventId }),
+                       Date() >= event.plannedEndTime {
+                        // Event should have ended — complete it and move on
+                        dayPlanVM.completeEvent(id: savedEventId)
+                        isTimingEvent = false
+                        activeEventId = nil
+                        syncToFirstPendingCalendar()
+                        if settings?.autoStartNextTask == true { start() }
+                        dayPlanVM.recomputeTimeline()
+                        persistState()
+                        return
+                    }
+                    // Still in overtime but event hasn't ended yet by schedule
+                    isTimingEvent = true
+                    activeEventId = savedEventId
+                    activeTaskId = nil
+                    totalDuration = savedTotal
+                    isOvertime = true
+                    overtimeElapsed = totalOvertime
+                    remainingTime = 0
+                    start()
+                } else {
+                    let newRemaining = savedRemaining - elapsed
+                    if newRemaining <= 0 {
+                        // Timer ran out while app was closed — check if event should be auto-completed
+                        if let event = dayPlanVM.dayPlan.events.first(where: { $0.id == savedEventId }),
+                           Date() >= event.plannedEndTime {
+                            // Event ended while app was closed — complete it and move on
+                            dayPlanVM.completeEvent(id: savedEventId)
+                            isTimingEvent = false
+                            activeEventId = nil
+                            syncToFirstPendingCalendar()
+                            if settings?.autoStartNextTask == true { start() }
+                            dayPlanVM.recomputeTimeline()
+                            persistState()
+                            return
+                        }
+                        // Crossed into overtime
+                        isTimingEvent = true
+                        activeEventId = savedEventId
+                        activeTaskId = nil
+                        totalDuration = savedTotal
+                        isOvertime = true
+                        overtimeElapsed = abs(newRemaining)
+                        remainingTime = 0
+                        start()
+                    } else {
+                        isTimingEvent = true
+                        activeEventId = savedEventId
+                        activeTaskId = nil
+                        totalDuration = savedTotal
+                        isOvertime = false
+                        remainingTime = newRemaining
+                        overtimeElapsed = 0
+                        start()
+                    }
+                }
+            } else if eventExists {
+                // Was paused — restore exact state
+                isTimingEvent = true
+                activeEventId = savedEventId
+                activeTaskId = nil
+                totalDuration = savedTotal
+                remainingTime = savedRemaining
+                isOvertime = wasOvertime
+                overtimeElapsed = savedOvertime
+            } else {
+                // Event was completed/removed while app was closed — fall through to task restore
+                isTimingEvent = false
+                activeEventId = nil
+                syncToFirstPendingCalendar()
+                if settings?.autoStartNextTask == true { start() }
+                persistState()
+            }
+            return
+        }
+
+        // --- Task restore path ---
+        guard let idString = defaults.string(forKey: kTimerActiveTaskId),
+              let savedId = UUID(uuidString: idString) else {
+            return
+        }
 
         // Verify this task still exists and is pending (check both list mode and calendar mode)
         let taskExists: Bool
@@ -682,6 +785,8 @@ class TimerViewModel: ObservableObject {
     func clearPersistedState() {
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: kTimerActiveTaskId)
+        defaults.removeObject(forKey: kTimerActiveEventId)
+        defaults.removeObject(forKey: kTimerIsTimingEvent)
         defaults.removeObject(forKey: kTimerRemainingTime)
         defaults.removeObject(forKey: kTimerTotalDuration)
         defaults.removeObject(forKey: kTimerIsRunning)

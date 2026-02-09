@@ -89,11 +89,11 @@ struct ContentView: View {
             }
             timerVM.configureForCalendar(dayPlanVM: dayPlanVM, settings: settings)
             dayPlanVM.timerVM = timerVM
-            if !dayPlanVM.dayPlan.tasks.isEmpty {
+            if !dayPlanVM.dayPlan.tasks.isEmpty || !dayPlanVM.dayPlan.events.isEmpty {
                 // Restore persisted timer state (survives app termination)
                 timerVM.restoreState()
                 // If no persisted state was restored, sync to first pending task
-                if timerVM.activeTaskId == nil {
+                if timerVM.activeTaskId == nil && timerVM.activeEventId == nil {
                     timerVM.syncToFirstPendingCalendar()
                 }
             }
@@ -111,7 +111,7 @@ struct ContentView: View {
                 }
             case .active:
                 // Re-sync timer on return to foreground (account for elapsed time while suspended)
-                if timerVM.activeTaskId != nil {
+                if timerVM.activeTaskId != nil || timerVM.activeEventId != nil {
                     timerVM.restoreState()
                 }
                 dayPlanVM.recomputeTimeline()
