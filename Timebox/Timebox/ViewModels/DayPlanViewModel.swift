@@ -30,7 +30,15 @@ class DayPlanViewModel: ObservableObject {
     // MARK: - Timeline
 
     func recomputeTimeline() {
-        timelineSlots = SchedulingEngine.computeFullTimeline(plan: dayPlan, dayStart: Date())
+        timelineSlots = SchedulingEngine.computeFullTimeline(
+            plan: dayPlan,
+            dayStart: Date(),
+            activeTaskId: timerVM?.activeTaskId,
+            remainingTime: timerVM?.remainingTime ?? 0,
+            isOvertime: timerVM?.isOvertime ?? false,
+            overtimeElapsed: timerVM?.overtimeElapsed ?? 0,
+            totalDuration: timerVM?.totalDuration ?? 0
+        )
     }
 
     private func startTimelineUpdates() {

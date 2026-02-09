@@ -144,107 +144,108 @@ struct CalendarTimelineView: View {
     }
 
     private func taskSlotView(task: TaskItem, isFragment: Bool, height: CGFloat, slotStart: Date, slotEnd: Date) -> some View {
-        ZStack(alignment: .topLeading) {
-            // Background
+        VStack(spacing: 0) {
+            HStack(spacing: 3) {
+                Color.clear.frame(width: 3) // spacer for full-height color bar
+
+                if !task.icon.isEmpty {
+                    if task.icon.count <= 2 && task.icon.unicodeScalars.allSatisfy({ $0.value > 127 }) {
+                        Text(task.icon).font(.system(size: 10))
+                    } else {
+                        Image(systemName: task.icon).font(.system(size: 9))
+                    }
+                }
+
+                Text("\(task.title) \(formatCompactDuration(task.duration))\(isFragment ? "*" : "") (\(TimeFormatting.formatTightTimeRange(start: slotStart, end: slotEnd)))")
+                    .font(.system(size: 11))
+                    .fontWeight(timerVM.activeTaskId == task.id ? .semibold : .regular)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                if !task.isCompleted && timerVM.activeTaskId == task.id {
+                    Button {
+                        timerVM.completeCurrentTaskCalendar()
+                    } label: {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 14))
+                            .foregroundColor(task.color)
+                    }
+                }
+            }
+            .padding(.horizontal, 3)
+            .padding(.vertical, 1)
+            Spacer(minLength: 0)
+        }
+        .frame(height: height)
+        .background(
             RoundedRectangle(cornerRadius: 4)
                 .fill(task.color.opacity(task.isCompleted ? 0.15 : 0.25))
-            // Active task border
+        )
+        .overlay(alignment: .leading) {
+            // Full-height color bar on left edge
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(task.color)
+                .frame(width: 3)
+        }
+        .overlay {
             if timerVM.activeTaskId == task.id {
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(task.color, lineWidth: 1.5)
             }
-            // Color bar (full height)
-            RoundedRectangle(cornerRadius: 1.5)
-                .fill(task.color)
-                .frame(width: 3)
-            // Content pinned to top via VStack + Spacer
-            VStack(spacing: 0) {
-                HStack(spacing: 3) {
-                    Color.clear.frame(width: 3) // spacer for color bar
-
-                    if !task.icon.isEmpty {
-                        if task.icon.count <= 2 && task.icon.unicodeScalars.allSatisfy({ $0.value > 127 }) {
-                            Text(task.icon).font(.system(size: 10))
-                        } else {
-                            Image(systemName: task.icon).font(.system(size: 9))
-                        }
-                    }
-
-                    Text("\(task.title) \(formatCompactDuration(task.duration))\(isFragment ? "*" : "") (\(TimeFormatting.formatTightTimeRange(start: slotStart, end: slotEnd)))")
-                        .font(.system(size: 11))
-                        .fontWeight(timerVM.activeTaskId == task.id ? .semibold : .regular)
-                        .lineLimit(1)
-
-                    Spacer(minLength: 0)
-
-                    if !task.isCompleted && timerVM.activeTaskId == task.id {
-                        Button {
-                            timerVM.completeCurrentTaskCalendar()
-                        } label: {
-                            Image(systemName: "checkmark.circle")
-                                .font(.system(size: 14))
-                                .foregroundColor(task.color)
-                        }
-                    }
-                }
-                .padding(.horizontal, 3)
-                .padding(.vertical, 1)
-                Spacer(minLength: 0)
-            }
         }
-        .frame(height: height)
         .opacity(task.isCompleted ? 0.6 : 1.0)
-        .clipped()
+        .clipShape(RoundedRectangle(cornerRadius: 4))
         .onTapGesture {
             onEditTask(task)
         }
     }
 
     private func eventSlotView(event: Event, height: CGFloat, slotStart: Date, slotEnd: Date) -> some View {
-        ZStack(alignment: .topLeading) {
-            // Background + dashed border
+        VStack(spacing: 0) {
+            HStack(spacing: 4) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 9))
+                    .foregroundColor(event.color)
+
+                Text("\(event.title) \(formatCompactDuration(event.plannedDuration)) (\(TimeFormatting.formatTightTimeRange(start: slotStart, end: slotEnd)))")
+                    .font(.system(size: 11))
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                if !event.isCompleted && timerVM.activeEventId == event.id {
+                    Button {
+                        timerVM.completeCurrentEvent()
+                    } label: {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(event.color)
+                    }
+                }
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            Spacer(minLength: 0)
+        }
+        .frame(height: height)
+        .background(
             RoundedRectangle(cornerRadius: 4)
-                .fill(event.color.opacity(event.isCompleted ? 0.1 : 0.2))
-            RoundedRectangle(cornerRadius: 4)
-                .strokeBorder(event.color.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-            // Color bar (full height)
+                .fill(event.color.opacity(event.isCompleted ? 0.08 : 0.12))
+        )
+        .overlay(alignment: .trailing) {
+            // Full-height color bar on right edge (events = right bar, tasks = left bar)
             RoundedRectangle(cornerRadius: 1.5)
                 .fill(event.color)
                 .frame(width: 3)
-            // Content pinned to top via VStack + Spacer
-            VStack(spacing: 0) {
-                HStack(spacing: 3) {
-                    Color.clear.frame(width: 3) // spacer for color bar
-
-                    Image(systemName: "calendar")
-                        .font(.system(size: 9))
-                        .foregroundColor(event.color)
-
-                    Text("\(event.title) \(formatCompactDuration(event.plannedDuration)) (\(TimeFormatting.formatTightTimeRange(start: slotStart, end: slotEnd)))")
-                        .font(.system(size: 11))
-                        .fontWeight(.semibold)
-                        .lineLimit(1)
-
-                    Spacer(minLength: 0)
-
-                    if !event.isCompleted && timerVM.activeEventId == event.id {
-                        Button {
-                            timerVM.completeCurrentEvent()
-                        } label: {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 14))
-                                .foregroundColor(event.color)
-                        }
-                    }
-                }
-                .padding(.horizontal, 3)
-                .padding(.vertical, 1)
-                Spacer(minLength: 0)
-            }
         }
-        .frame(height: height)
+        .overlay {
+            RoundedRectangle(cornerRadius: 4)
+                .strokeBorder(event.color.opacity(event.isCompleted ? 0.3 : 0.6), lineWidth: 1.5)
+        }
         .opacity(event.isCompleted ? 0.5 : 1.0)
-        .clipped()
+        .clipShape(RoundedRectangle(cornerRadius: 4))
         .onTapGesture {
             onEditEvent(event)
         }
