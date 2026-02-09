@@ -284,8 +284,10 @@ If a timer is left running overnight, tasks just keep pushing forward. The app d
 
 ## Future Enhancements (Not in v1)
 
-- **Recurring events**: Repeat rules on events (daily, specific weekdays) that auto-populate when a new DayPlan is created. Priority: high (avoids re-entering the same meeting 5x/week).
+- **Recurring events**: Repeat rules on events (daily, specific weekdays) that auto-populate when a new DayPlan is created.
 - **Calendar import**: Pull events from the iPhone Calendar app instead of manual entry.
 - **Retroactive time editing**: Manually adjust start/end times of completed items for timesheet accuracy.
 - **Day-clock dial**: A circular 24-hour (or waking-hours or working-hours) dial showing the full day with colored arcs for tasks and events. Planner mode equivalent of the simple mode dial.
 - **Multi-day view**: See/plan more than just today.
+- **Unsplittable tasks**: Tasks that cannot be interrupted by events, so the entire task will be moved to after the would-be-interruptive event. Example: driving to work
+- **Time-bound list dividers**: List dividers that will defer tasks on the calendar until a certain minimum start time. Example: Sleep (and the tasks that follow it, such as getting ready for work) may start no earlier than 9pm. If preceding tasks do not reach to/past 9pm, leave a gap in the calendar and pick back up at 9.
