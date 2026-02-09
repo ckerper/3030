@@ -422,11 +422,22 @@ class TimerViewModel: ObservableObject {
             // Auto-finish any previous event
             dayPlanVM.autoFinishPreviousEvent(before: event.id)
 
-            // Record actual start time for the current task being interrupted
+            // Record the fragment that was just worked on before the interruption
             if let taskId = activeTaskId,
                let idx = dayPlanVM.dayPlan.tasks.firstIndex(where: { $0.id == taskId }) {
                 if dayPlanVM.dayPlan.tasks[idx].actualStartTime == nil {
                     dayPlanVM.dayPlan.tasks[idx].actualStartTime = timerStartedAt
+                }
+
+                let now = Date()
+                let totalElapsed = isOvertime ? (totalDuration + overtimeElapsed) : (totalDuration - remainingTime)
+                let previousFragmentsElapsed = dayPlanVM.dayPlan.tasks[idx].completedFragments.reduce(0.0) { $0 + $1.duration }
+                let currentFragmentElapsed = totalElapsed - previousFragmentsElapsed
+                if currentFragmentElapsed > 0 {
+                    let fragmentStart = now.addingTimeInterval(-currentFragmentElapsed)
+                    dayPlanVM.dayPlan.tasks[idx].completedFragments.append(
+                        CompletedFragment(startTime: fragmentStart, endTime: now)
+                    )
                 }
             }
 
@@ -482,10 +493,25 @@ class TimerViewModel: ObservableObject {
             savedRemainingTimes.removeValue(forKey: id)
         }
 
-        // Compute actualStartTime from elapsed time so calendar shows correct duration
+        // Record the final fragment and set actualStartTime
         if let idx = dayPlanVM.dayPlan.tasks.firstIndex(where: { $0.id == id }) {
-            let elapsed = isOvertime ? (totalDuration + overtimeElapsed) : (totalDuration - remainingTime)
-            dayPlanVM.dayPlan.tasks[idx].actualStartTime = Date().addingTimeInterval(-elapsed)
+            let now = Date()
+            let totalElapsed = isOvertime ? (totalDuration + overtimeElapsed) : (totalDuration - remainingTime)
+            let previousFragmentsElapsed = dayPlanVM.dayPlan.tasks[idx].completedFragments.reduce(0.0) { $0 + $1.duration }
+            let currentFragmentElapsed = totalElapsed - previousFragmentsElapsed
+            if currentFragmentElapsed > 0 {
+                let fragmentStart = now.addingTimeInterval(-currentFragmentElapsed)
+                dayPlanVM.dayPlan.tasks[idx].completedFragments.append(
+                    CompletedFragment(startTime: fragmentStart, endTime: now)
+                )
+            }
+
+            // Use the first fragment's start as the task's actual start time
+            if let firstFrag = dayPlanVM.dayPlan.tasks[idx].completedFragments.first {
+                dayPlanVM.dayPlan.tasks[idx].actualStartTime = firstFrag.startTime
+            } else {
+                dayPlanVM.dayPlan.tasks[idx].actualStartTime = now.addingTimeInterval(-totalElapsed)
+            }
         }
 
         dayPlanVM.completeTask(id: id)
@@ -546,10 +572,11 @@ class TimerViewModel: ObservableObject {
         overtimeElapsed = 0
         isOvertime = false
 
-        // Clear stale actualStartTime so it gets re-set on next start or at completion
+        // Clear stale actualStartTime and completed fragments so it gets re-set on next start
         if let dayPlanVM = dayPlanVM,
            let idx = dayPlanVM.dayPlan.tasks.firstIndex(where: { $0.id == task.id }) {
             dayPlanVM.dayPlan.tasks[idx].actualStartTime = nil
+            dayPlanVM.dayPlan.tasks[idx].completedFragments = []
         }
 
         persistState()

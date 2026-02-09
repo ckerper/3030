@@ -1,6 +1,16 @@
 import Foundation
 import SwiftUI
 
+/// A frozen record of a past fragment that was actually worked on.
+struct CompletedFragment: Codable, Equatable, Hashable {
+    var startTime: Date
+    var endTime: Date
+
+    var duration: TimeInterval {
+        endTime.timeIntervalSince(startTime)
+    }
+}
+
 struct TaskItem: Identifiable, Codable, Equatable, Hashable {
     var id: UUID
     var title: String
@@ -13,6 +23,10 @@ struct TaskItem: Identifiable, Codable, Equatable, Hashable {
     var actualStartTime: Date?
     var actualEndTime: Date?
 
+    /// Frozen past fragments for this task (calendar mode).
+    /// Recorded each time the task is interrupted by an event.
+    var completedFragments: [CompletedFragment]
+
     init(
         id: UUID = UUID(),
         title: String = "New Task",
@@ -21,7 +35,8 @@ struct TaskItem: Identifiable, Codable, Equatable, Hashable {
         icon: String = "",
         isCompleted: Bool = false,
         actualStartTime: Date? = nil,
-        actualEndTime: Date? = nil
+        actualEndTime: Date? = nil,
+        completedFragments: [CompletedFragment] = []
     ) {
         self.id = id
         self.title = title
@@ -31,6 +46,21 @@ struct TaskItem: Identifiable, Codable, Equatable, Hashable {
         self.isCompleted = isCompleted
         self.actualStartTime = actualStartTime
         self.actualEndTime = actualEndTime
+        self.completedFragments = completedFragments
+    }
+
+    // Custom decoder: fall back to empty array for completedFragments when decoding old data
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        duration = try container.decode(TimeInterval.self, forKey: .duration)
+        colorName = try container.decode(String.self, forKey: .colorName)
+        icon = try container.decode(String.self, forKey: .icon)
+        isCompleted = try container.decode(Bool.self, forKey: .isCompleted)
+        actualStartTime = try container.decodeIfPresent(Date.self, forKey: .actualStartTime)
+        actualEndTime = try container.decodeIfPresent(Date.self, forKey: .actualEndTime)
+        completedFragments = (try? container.decode([CompletedFragment].self, forKey: .completedFragments)) ?? []
     }
 
     var color: Color {
