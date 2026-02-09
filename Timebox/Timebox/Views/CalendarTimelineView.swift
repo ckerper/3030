@@ -157,37 +157,40 @@ struct CalendarTimelineView: View {
             RoundedRectangle(cornerRadius: 1.5)
                 .fill(task.color)
                 .frame(width: 3)
-            // Content pinned to top
-            HStack(spacing: 3) {
-                Color.clear.frame(width: 3) // spacer for color bar
+            // Content pinned to top via VStack + Spacer
+            VStack(spacing: 0) {
+                HStack(spacing: 3) {
+                    Color.clear.frame(width: 3) // spacer for color bar
 
-                if !task.icon.isEmpty {
-                    if task.icon.count <= 2 && task.icon.unicodeScalars.allSatisfy({ $0.value > 127 }) {
-                        Text(task.icon).font(.system(size: 10))
-                    } else {
-                        Image(systemName: task.icon).font(.system(size: 9))
+                    if !task.icon.isEmpty {
+                        if task.icon.count <= 2 && task.icon.unicodeScalars.allSatisfy({ $0.value > 127 }) {
+                            Text(task.icon).font(.system(size: 10))
+                        } else {
+                            Image(systemName: task.icon).font(.system(size: 9))
+                        }
+                    }
+
+                    Text("\(task.title) \(formatCompactDuration(task.duration))\(isFragment ? "*" : "") (\(TimeFormatting.formatTightTimeRange(start: slotStart, end: slotEnd)))")
+                        .font(.system(size: 11))
+                        .fontWeight(timerVM.activeTaskId == task.id ? .semibold : .regular)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 0)
+
+                    if !task.isCompleted && timerVM.activeTaskId == task.id {
+                        Button {
+                            timerVM.completeCurrentTaskCalendar()
+                        } label: {
+                            Image(systemName: "checkmark.circle")
+                                .font(.system(size: 14))
+                                .foregroundColor(task.color)
+                        }
                     }
                 }
-
-                Text("\(task.title) \(formatCompactDuration(task.duration))\(isFragment ? "*" : "") (\(TimeFormatting.formatTightTimeRange(start: slotStart, end: slotEnd)))")
-                    .font(.system(size: 11))
-                    .fontWeight(timerVM.activeTaskId == task.id ? .semibold : .regular)
-                    .lineLimit(1)
-
+                .padding(.horizontal, 3)
+                .padding(.vertical, 1)
                 Spacer(minLength: 0)
-
-                if !task.isCompleted && timerVM.activeTaskId == task.id {
-                    Button {
-                        timerVM.completeCurrentTaskCalendar()
-                    } label: {
-                        Image(systemName: "checkmark.circle")
-                            .font(.system(size: 14))
-                            .foregroundColor(task.color)
-                    }
-                }
             }
-            .padding(.horizontal, 3)
-            .padding(.vertical, 1)
         }
         .frame(height: height)
         .opacity(task.isCompleted ? 0.6 : 1.0)
@@ -208,33 +211,36 @@ struct CalendarTimelineView: View {
             RoundedRectangle(cornerRadius: 1.5)
                 .fill(event.color)
                 .frame(width: 3)
-            // Content pinned to top
-            HStack(spacing: 3) {
-                Color.clear.frame(width: 3) // spacer for color bar
+            // Content pinned to top via VStack + Spacer
+            VStack(spacing: 0) {
+                HStack(spacing: 3) {
+                    Color.clear.frame(width: 3) // spacer for color bar
 
-                Image(systemName: "calendar")
-                    .font(.system(size: 9))
-                    .foregroundColor(event.color)
+                    Image(systemName: "calendar")
+                        .font(.system(size: 9))
+                        .foregroundColor(event.color)
 
-                Text("\(event.title) \(formatCompactDuration(event.plannedDuration)) (\(TimeFormatting.formatTightTimeRange(start: slotStart, end: slotEnd)))")
-                    .font(.system(size: 11))
-                    .fontWeight(.semibold)
-                    .lineLimit(1)
+                    Text("\(event.title) \(formatCompactDuration(event.plannedDuration)) (\(TimeFormatting.formatTightTimeRange(start: slotStart, end: slotEnd)))")
+                        .font(.system(size: 11))
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
 
-                Spacer(minLength: 0)
+                    Spacer(minLength: 0)
 
-                if !event.isCompleted && timerVM.activeEventId == event.id {
-                    Button {
-                        timerVM.completeCurrentEvent()
-                    } label: {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(event.color)
+                    if !event.isCompleted && timerVM.activeEventId == event.id {
+                        Button {
+                            timerVM.completeCurrentEvent()
+                        } label: {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(event.color)
+                        }
                     }
                 }
+                .padding(.horizontal, 3)
+                .padding(.vertical, 1)
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 3)
-            .padding(.vertical, 1)
         }
         .frame(height: height)
         .opacity(event.isCompleted ? 0.5 : 1.0)
