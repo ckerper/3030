@@ -202,17 +202,74 @@ struct SchedulingEngine {
                 activeEnd = now.addingTimeInterval(task?.duration ?? 0)
             }
 
-            allSlots.append(.taskFragment(
-                taskId: activeId,
-                startTime: activeStart,
-                endTime: activeEnd,
-                fragmentIndex: 0,
-                duration: activeEnd.timeIntervalSince(activeStart)
-            ))
+            // Find non-completed events that fall within the active task's time span
+            let overlappingEvents = plan.events.filter { event in
+                !event.isCompleted &&
+                event.startTime > activeStart &&
+                event.startTime < activeEnd
+            }.sorted { $0.startTime < $1.startTime }
+
+            var consumedEventIds: Set<UUID> = []
+
+            if overlappingEvents.isEmpty {
+                // No overlapping events — single fragment
+                allSlots.append(.taskFragment(
+                    taskId: activeId,
+                    startTime: activeStart,
+                    endTime: activeEnd,
+                    fragmentIndex: 0,
+                    duration: activeEnd.timeIntervalSince(activeStart)
+                ))
+            } else {
+                // Split active task around overlapping events
+                var cursor = activeStart
+                var fragmentIndex = 0
+
+                for event in overlappingEvents {
+                    let eventEnd = event.startTime.addingTimeInterval(event.plannedDuration)
+
+                    // Task fragment before this event
+                    if event.startTime > cursor {
+                        allSlots.append(.taskFragment(
+                            taskId: activeId,
+                            startTime: cursor,
+                            endTime: event.startTime,
+                            fragmentIndex: fragmentIndex,
+                            duration: event.startTime.timeIntervalSince(cursor)
+                        ))
+                        fragmentIndex += 1
+                    }
+
+                    // The event itself
+                    allSlots.append(.event(
+                        eventId: event.id,
+                        startTime: event.startTime,
+                        endTime: eventEnd
+                    ))
+                    consumedEventIds.insert(event.id)
+
+                    cursor = max(cursor, eventEnd)
+                }
+
+                // Final task fragment after the last event
+                if cursor < activeEnd {
+                    allSlots.append(.taskFragment(
+                        taskId: activeId,
+                        startTime: cursor,
+                        endTime: activeEnd,
+                        fragmentIndex: fragmentIndex,
+                        duration: activeEnd.timeIntervalSince(cursor)
+                    ))
+                }
+            }
 
             // Compute pending timeline for remaining tasks (excluding active task)
+            // Also exclude events already placed during active task splitting
             var pendingPlan = plan
             pendingPlan.tasks = plan.tasks.filter { $0.id != activeId }
+            if !consumedEventIds.isEmpty {
+                pendingPlan.events = plan.events.filter { !consumedEventIds.contains($0.id) }
+            }
             let pendingStartTime = isOvertime ? now : now.addingTimeInterval(remainingTime)
             let pendingSlots = computeTimeline(plan: pendingPlan, startTime: pendingStartTime)
             allSlots.append(contentsOf: pendingSlots)

@@ -85,6 +85,14 @@ struct CalendarModeView: View {
         .sheet(item: $editingTask) { task in
             TaskEditView(task: task, onSave: { updated in
                 dayPlanVM.updateTask(updated)
+                // Sync timer if this is the currently active task
+                if timerVM.activeTaskId == updated.id {
+                    let durationDelta = updated.duration - task.duration
+                    if durationDelta != 0 {
+                        timerVM.adjustTime(by: durationDelta)
+                        dayPlanVM.recomputeTimeline()
+                    }
+                }
             }, onDelete: {
                 dayPlanVM.removeTask(id: task.id)
             })
