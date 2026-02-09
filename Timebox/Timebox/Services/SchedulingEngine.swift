@@ -166,69 +166,95 @@ struct SchedulingEngine {
             ))
         }
 
-        // Add completed tasks at their actual times (handle missing actualStartTime gracefully)
+        // Add completed tasks at their actual times
         for task in plan.tasks where task.isCompleted {
-            let end = task.actualEndTime ?? now
-            let start = task.actualStartTime ?? end.addingTimeInterval(-task.duration)
-            allSlots.append(.taskFragment(
-                taskId: task.id,
-                startTime: start,
-                endTime: end,
-                fragmentIndex: 0,
-                duration: end.timeIntervalSince(start)
-            ))
+            if !task.completedFragments.isEmpty {
+                // Show each frozen fragment at its actual position
+                for (i, frag) in task.completedFragments.enumerated() {
+                    allSlots.append(.taskFragment(
+                        taskId: task.id,
+                        startTime: frag.startTime,
+                        endTime: frag.endTime,
+                        fragmentIndex: i,
+                        duration: frag.duration
+                    ))
+                }
+            } else {
+                // Legacy / non-fragmented: single block
+                let end = task.actualEndTime ?? now
+                let start = task.actualStartTime ?? end.addingTimeInterval(-task.duration)
+                allSlots.append(.taskFragment(
+                    taskId: task.id,
+                    startTime: start,
+                    endTime: end,
+                    fragmentIndex: 0,
+                    duration: end.timeIntervalSince(start)
+                ))
+            }
         }
 
         // Handle the active task separately if timer state is provided
         if let activeId = activeTaskId,
-           plan.tasks.contains(where: { $0.id == activeId && !$0.isCompleted }) {
-            // Compute active task position based on timer state
-            let activeStart: Date
-            let activeEnd: Date
+           let activeTask = plan.tasks.first(where: { $0.id == activeId && !$0.isCompleted }) {
 
-            if isOvertime {
-                // Overtime: block spans from original start to now
-                activeStart = now.addingTimeInterval(-(totalDuration + overtimeElapsed))
-                activeEnd = now
-            } else if totalDuration > 0 {
-                // Normal: show elapsed before now, remaining after now
-                let elapsed = totalDuration - remainingTime
-                activeStart = now.addingTimeInterval(-elapsed)
-                activeEnd = now.addingTimeInterval(remainingTime)
-            } else {
-                // Fallback: no timer state, just use duration from now
-                let task = plan.tasks.first(where: { $0.id == activeId })
-                activeStart = now
-                activeEnd = now.addingTimeInterval(task?.duration ?? 0)
+            // 1. Emit frozen completed fragments at their actual positions
+            let frozenFragments = activeTask.completedFragments
+            let frozenElapsed = frozenFragments.reduce(0.0) { $0 + $1.duration }
+            for (i, frag) in frozenFragments.enumerated() {
+                allSlots.append(.taskFragment(
+                    taskId: activeId,
+                    startTime: frag.startTime,
+                    endTime: frag.endTime,
+                    fragmentIndex: i,
+                    duration: frag.duration
+                ))
             }
 
-            // Find non-completed events that fall within the active task's time span
+            // 2. Compute the current (live) fragment's time span
+            let currentFragStart: Date
+            let currentFragEnd: Date
+
+            if isOvertime {
+                let totalElapsed = totalDuration + overtimeElapsed
+                let currentElapsed = totalElapsed - frozenElapsed
+                currentFragStart = now.addingTimeInterval(-currentElapsed)
+                currentFragEnd = now
+            } else if totalDuration > 0 {
+                let totalElapsed = totalDuration - remainingTime
+                let currentElapsed = max(0, totalElapsed - frozenElapsed)
+                currentFragStart = now.addingTimeInterval(-currentElapsed)
+                currentFragEnd = now.addingTimeInterval(remainingTime)
+            } else {
+                currentFragStart = now
+                currentFragEnd = now.addingTimeInterval(activeTask.duration)
+            }
+
+            let currentFragIndex = frozenFragments.count
+
+            // 3. Split the current fragment around any future non-completed events
             let overlappingEvents = plan.events.filter { event in
                 !event.isCompleted &&
-                event.startTime > activeStart &&
-                event.startTime < activeEnd
+                event.startTime > currentFragStart &&
+                event.startTime < currentFragEnd
             }.sorted { $0.startTime < $1.startTime }
 
             var consumedEventIds: Set<UUID> = []
 
             if overlappingEvents.isEmpty {
-                // No overlapping events — single fragment
                 allSlots.append(.taskFragment(
                     taskId: activeId,
-                    startTime: activeStart,
-                    endTime: activeEnd,
-                    fragmentIndex: 0,
-                    duration: activeEnd.timeIntervalSince(activeStart)
+                    startTime: currentFragStart,
+                    endTime: currentFragEnd,
+                    fragmentIndex: currentFragIndex,
+                    duration: currentFragEnd.timeIntervalSince(currentFragStart)
                 ))
             } else {
-                // Split active task around overlapping events
-                var cursor = activeStart
-                var fragmentIndex = 0
+                var cursor = currentFragStart
+                var fragmentIndex = currentFragIndex
 
                 for event in overlappingEvents {
                     let eventEnd = event.startTime.addingTimeInterval(event.plannedDuration)
 
-                    // Task fragment before this event
                     if event.startTime > cursor {
                         allSlots.append(.taskFragment(
                             taskId: activeId,
@@ -240,7 +266,6 @@ struct SchedulingEngine {
                         fragmentIndex += 1
                     }
 
-                    // The event itself
                     allSlots.append(.event(
                         eventId: event.id,
                         startTime: event.startTime,
@@ -251,20 +276,18 @@ struct SchedulingEngine {
                     cursor = max(cursor, eventEnd)
                 }
 
-                // Final task fragment after the last event
-                if cursor < activeEnd {
+                if cursor < currentFragEnd {
                     allSlots.append(.taskFragment(
                         taskId: activeId,
                         startTime: cursor,
-                        endTime: activeEnd,
+                        endTime: currentFragEnd,
                         fragmentIndex: fragmentIndex,
-                        duration: activeEnd.timeIntervalSince(cursor)
+                        duration: currentFragEnd.timeIntervalSince(cursor)
                     ))
                 }
             }
 
             // Compute pending timeline for remaining tasks (excluding active task)
-            // Also exclude events already placed during active task splitting
             var pendingPlan = plan
             pendingPlan.tasks = plan.tasks.filter { $0.id != activeId }
             if !consumedEventIds.isEmpty {
