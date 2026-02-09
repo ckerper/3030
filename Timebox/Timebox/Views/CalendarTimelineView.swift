@@ -145,8 +145,6 @@ struct CalendarTimelineView: View {
 
     private func taskSlotView(task: TaskItem, isFragment: Bool, height: CGFloat, slotStart: Date, slotEnd: Date) -> some View {
         HStack(spacing: 3) {
-            Color.clear.frame(width: 3) // spacer for full-height color bar
-
             if !task.icon.isEmpty {
                 if task.icon.count <= 2 && task.icon.unicodeScalars.allSatisfy({ $0.value > 127 }) {
                     Text(task.icon).font(.system(size: 10))
@@ -172,7 +170,8 @@ struct CalendarTimelineView: View {
                 }
             }
         }
-        .padding(.horizontal, 3)
+        .padding(.leading, 6)  // clear the color bar overlay
+        .padding(.trailing, 3)
         .padding(.vertical, 1)
         .frame(height: height, alignment: .top)
         .background(
