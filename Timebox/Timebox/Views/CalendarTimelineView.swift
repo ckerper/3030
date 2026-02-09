@@ -144,64 +144,52 @@ struct CalendarTimelineView: View {
     }
 
     private func taskSlotView(task: TaskItem, isFragment: Bool, height: CGFloat, slotStart: Date, slotEnd: Date) -> some View {
-        HStack(spacing: 3) {
-            // Color bar
+        ZStack(alignment: .topLeading) {
+            // Background
+            RoundedRectangle(cornerRadius: 4)
+                .fill(task.color.opacity(task.isCompleted ? 0.15 : 0.25))
+            // Active task border
+            if timerVM.activeTaskId == task.id {
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(task.color, lineWidth: 1.5)
+            }
+            // Color bar (full height)
             RoundedRectangle(cornerRadius: 1.5)
                 .fill(task.color)
                 .frame(width: 3)
+            // Content pinned to top
+            HStack(spacing: 3) {
+                Color.clear.frame(width: 3) // spacer for color bar
 
-            // Icon
-            if !task.icon.isEmpty {
-                if task.icon.count <= 2 && task.icon.unicodeScalars.allSatisfy({ $0.value > 127 }) {
-                    Text(task.icon).font(.system(size: 10))
-                } else {
-                    Image(systemName: task.icon).font(.system(size: 9))
+                if !task.icon.isEmpty {
+                    if task.icon.count <= 2 && task.icon.unicodeScalars.allSatisfy({ $0.value > 127 }) {
+                        Text(task.icon).font(.system(size: 10))
+                    } else {
+                        Image(systemName: task.icon).font(.system(size: 9))
+                    }
+                }
+
+                Text("\(task.title) \(formatCompactDuration(task.duration))\(isFragment ? "*" : "") (\(TimeFormatting.formatTightTimeRange(start: slotStart, end: slotEnd)))")
+                    .font(.system(size: 11))
+                    .fontWeight(timerVM.activeTaskId == task.id ? .semibold : .regular)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                if !task.isCompleted && timerVM.activeTaskId == task.id {
+                    Button {
+                        timerVM.completeCurrentTaskCalendar()
+                    } label: {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 14))
+                            .foregroundColor(task.color)
+                    }
                 }
             }
-
-            // Title
-            Text(task.title)
-                .font(.system(size: 11))
-                .fontWeight(timerVM.activeTaskId == task.id ? .semibold : .regular)
-                .lineLimit(1)
-
-            // Duration (with * if fragment)
-            Text(task.formattedDuration + (isFragment ? "*" : ""))
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
-
-            // Fragment time range
-            Text(TimeFormatting.formatCompactTimeRange(start: slotStart, end: slotEnd))
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
-
-            Spacer(minLength: 0)
-
-            // Complete button
-            if !task.isCompleted && timerVM.activeTaskId == task.id {
-                Button {
-                    timerVM.completeCurrentTaskCalendar()
-                } label: {
-                    Image(systemName: "checkmark.circle")
-                        .font(.system(size: 14))
-                        .foregroundColor(task.color)
-                }
-            }
+            .padding(.horizontal, 3)
+            .padding(.vertical, 1)
         }
-        .padding(.horizontal, 3)
-        .padding(.vertical, 1)
-        .frame(height: height, alignment: .top)
-        .background(
-            RoundedRectangle(cornerRadius: 4)
-                .fill(task.color.opacity(task.isCompleted ? 0.15 : 0.25))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 4)
-                .stroke(
-                    timerVM.activeTaskId == task.id ? task.color : Color.clear,
-                    lineWidth: timerVM.activeTaskId == task.id ? 1.5 : 0
-                )
-        )
+        .frame(height: height)
         .opacity(task.isCompleted ? 0.6 : 1.0)
         .clipped()
         .onTapGesture {
@@ -210,49 +198,45 @@ struct CalendarTimelineView: View {
     }
 
     private func eventSlotView(event: Event, height: CGFloat, slotStart: Date, slotEnd: Date) -> some View {
-        HStack(spacing: 3) {
-            // Color bar
+        ZStack(alignment: .topLeading) {
+            // Background + dashed border
+            RoundedRectangle(cornerRadius: 4)
+                .fill(event.color.opacity(event.isCompleted ? 0.1 : 0.2))
+            RoundedRectangle(cornerRadius: 4)
+                .strokeBorder(event.color.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            // Color bar (full height)
             RoundedRectangle(cornerRadius: 1.5)
                 .fill(event.color)
                 .frame(width: 3)
+            // Content pinned to top
+            HStack(spacing: 3) {
+                Color.clear.frame(width: 3) // spacer for color bar
 
-            Image(systemName: "calendar")
-                .font(.system(size: 9))
-                .foregroundColor(event.color)
+                Image(systemName: "calendar")
+                    .font(.system(size: 9))
+                    .foregroundColor(event.color)
 
-            Text(event.title)
-                .font(.system(size: 11))
-                .fontWeight(.semibold)
-                .lineLimit(1)
+                Text("\(event.title) \(formatCompactDuration(event.plannedDuration)) (\(TimeFormatting.formatTightTimeRange(start: slotStart, end: slotEnd)))")
+                    .font(.system(size: 11))
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
 
-            Text(TimeFormatting.formatCompactTimeRange(start: slotStart, end: slotEnd))
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
+                Spacer(minLength: 0)
 
-            Spacer(minLength: 0)
-
-            // Complete button for active event
-            if !event.isCompleted && timerVM.activeEventId == event.id {
-                Button {
-                    timerVM.completeCurrentEvent()
-                } label: {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(event.color)
+                if !event.isCompleted && timerVM.activeEventId == event.id {
+                    Button {
+                        timerVM.completeCurrentEvent()
+                    } label: {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(event.color)
+                    }
                 }
             }
+            .padding(.horizontal, 3)
+            .padding(.vertical, 1)
         }
-        .padding(.horizontal, 3)
-        .padding(.vertical, 1)
-        .frame(height: height, alignment: .top)
-        .background(
-            RoundedRectangle(cornerRadius: 4)
-                .fill(event.color.opacity(event.isCompleted ? 0.1 : 0.2))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 4)
-                        .strokeBorder(event.color.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                )
-        )
+        .frame(height: height)
         .opacity(event.isCompleted ? 0.5 : 1.0)
         .clipped()
         .onTapGesture {
@@ -282,6 +266,19 @@ struct CalendarTimelineView: View {
         let interval = date.timeIntervalSince(dayStartDate)
         let hours = interval / 3600
         return CGFloat(hours) * pointsPerHour
+    }
+
+    /// Compact duration: "1h 15m", "20m", "1m 30s" (only non-zero units)
+    private func formatCompactDuration(_ seconds: TimeInterval) -> String {
+        let total = Int(abs(seconds))
+        let h = total / 3600
+        let m = (total % 3600) / 60
+        let s = total % 60
+        var parts: [String] = []
+        if h > 0 { parts.append("\(h)h") }
+        if m > 0 { parts.append("\(m)m") }
+        if s > 0 || parts.isEmpty { parts.append("\(s)s") }
+        return parts.joined(separator: " ")
     }
 
     private func formatHour(_ hourOfDay: Int) -> String {

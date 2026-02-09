@@ -194,6 +194,26 @@ struct TimeFormatting {
 
         return "\(startFmt.string(from: start)) – \(endFmt.string(from: end))"
     }
+
+    /// Tight range with no spaces around en dash: "6:45–8:00pm"
+    static func formatTightTimeRange(start: Date, end: Date) -> String {
+        let cal = Calendar.current
+        let startIsPM = cal.component(.hour, from: start) >= 12
+        let endIsPM = cal.component(.hour, from: end) >= 12
+        let samePeriod = startIsPM == endIsPM
+
+        let startFmt = DateFormatter()
+        startFmt.dateFormat = samePeriod ? "h:mm" : "h:mma"
+        startFmt.amSymbol = "am"
+        startFmt.pmSymbol = "pm"
+
+        let endFmt = DateFormatter()
+        endFmt.dateFormat = "h:mma"
+        endFmt.amSymbol = "am"
+        endFmt.pmSymbol = "pm"
+
+        return "\(startFmt.string(from: start))–\(endFmt.string(from: end))"
+    }
 }
 
 // MARK: - Curated Icon Library

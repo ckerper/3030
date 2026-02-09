@@ -178,6 +178,22 @@ struct CalendarModeView: View {
         .padding(.vertical, 10)
     }
 
+    /// Adjust time in calendar mode: updates both the timer AND the stored task/event duration
+    private func adjustCalendarTime(by amount: TimeInterval) {
+        if timerVM.isTimingEvent, let eventId = timerVM.activeEventId {
+            // Adjust event duration
+            if var event = dayPlanVM.event(for: eventId) {
+                event.plannedDuration = max(60, event.plannedDuration + amount)
+                dayPlanVM.updateEvent(event)
+            }
+            timerVM.adjustTime(by: amount)
+        } else if let taskId = timerVM.activeTaskId {
+            // Adjust task duration (updates stored duration + recomputes timeline)
+            dayPlanVM.adjustDuration(taskId: taskId, by: amount)
+            timerVM.adjustTime(by: amount)
+        }
+    }
+
     // MARK: - Compact Timer Bar
 
     private var compactTimerBar: some View {
@@ -197,7 +213,7 @@ struct CalendarModeView: View {
 
             // Minus button
             Button {
-                timerVM.adjustTime(by: -currentIncrement)
+                adjustCalendarTime(by: -currentIncrement)
             } label: {
                 Image(systemName: "minus.circle.fill")
                     .font(.system(size: 22))
@@ -213,7 +229,7 @@ struct CalendarModeView: View {
 
             // Plus button
             Button {
-                timerVM.adjustTime(by: currentIncrement)
+                adjustCalendarTime(by: currentIncrement)
             } label: {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 22))
