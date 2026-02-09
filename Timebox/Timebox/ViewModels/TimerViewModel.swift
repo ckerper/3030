@@ -244,6 +244,13 @@ class TimerViewModel: ObservableObject {
             savedRemainingTimes.removeValue(forKey: id)
         }
 
+        // Set actual times so the task shows on calendar after completion
+        taskList.taskList.tasks[idx].actualEndTime = Date()
+        if taskList.taskList.tasks[idx].actualStartTime == nil {
+            let elapsed = isOvertime ? (totalDuration + overtimeElapsed) : (totalDuration - remainingTime)
+            taskList.taskList.tasks[idx].actualStartTime = Date().addingTimeInterval(-elapsed)
+        }
+
         // Mark completed
         taskList.completeTask(at: idx)
 
@@ -623,11 +630,18 @@ class TimerViewModel: ObservableObject {
         let savedOvertime = defaults.double(forKey: kTimerOvertimeElapsed)
         let savedTimestamp = defaults.double(forKey: kTimerLastSaveDate)
 
-        // Verify this task still exists and is pending
-        guard let taskList = taskList,
-              taskList.taskList.tasks.contains(where: { $0.id == savedId && !$0.isCompleted }) else {
-            return
+        // Verify this task still exists and is pending (check both list mode and calendar mode)
+        let taskExists: Bool
+        if let taskList = taskList,
+           taskList.taskList.tasks.contains(where: { $0.id == savedId && !$0.isCompleted }) {
+            taskExists = true
+        } else if let dayPlanVM = dayPlanVM,
+                  dayPlanVM.dayPlan.tasks.contains(where: { $0.id == savedId && !$0.isCompleted }) {
+            taskExists = true
+        } else {
+            taskExists = false
         }
+        guard taskExists else { return }
 
         activeTaskId = savedId
         totalDuration = savedTotal

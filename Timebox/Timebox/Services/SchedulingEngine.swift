@@ -145,8 +145,18 @@ struct SchedulingEngine {
 
     /// Compute timeline including completed items (for full calendar display).
     /// Completed tasks/events show at their actual times with actual durations.
-    static func computeFullTimeline(plan: DayPlan, dayStart: Date) -> [TimelineSlot] {
+    /// When timer state is provided, the active task is positioned based on elapsed/remaining time.
+    static func computeFullTimeline(
+        plan: DayPlan,
+        dayStart: Date,
+        activeTaskId: UUID? = nil,
+        remainingTime: TimeInterval = 0,
+        isOvertime: Bool = false,
+        overtimeElapsed: TimeInterval = 0,
+        totalDuration: TimeInterval = 0
+    ) -> [TimelineSlot] {
         var allSlots: [TimelineSlot] = []
+        let now = Date()
 
         // Add completed events at their actual times
         for event in plan.events where event.isCompleted {
@@ -158,23 +168,61 @@ struct SchedulingEngine {
             ))
         }
 
-        // Add completed tasks at their actual times
+        // Add completed tasks at their actual times (handle missing actualStartTime gracefully)
         for task in plan.tasks where task.isCompleted {
-            if let start = task.actualStartTime {
-                let end = task.actualEndTime ?? start.addingTimeInterval(task.duration)
-                allSlots.append(.taskFragment(
-                    taskId: task.id,
-                    startTime: start,
-                    endTime: end,
-                    fragmentIndex: 0,
-                    duration: end.timeIntervalSince(start)
-                ))
-            }
+            let end = task.actualEndTime ?? now
+            let start = task.actualStartTime ?? end.addingTimeInterval(-task.duration)
+            allSlots.append(.taskFragment(
+                taskId: task.id,
+                startTime: start,
+                endTime: end,
+                fragmentIndex: 0,
+                duration: end.timeIntervalSince(start)
+            ))
         }
 
-        // Compute pending timeline from now
-        let pendingSlots = computeTimeline(plan: plan, startTime: Date())
-        allSlots.append(contentsOf: pendingSlots)
+        // Handle the active task separately if timer state is provided
+        if let activeId = activeTaskId,
+           plan.tasks.contains(where: { $0.id == activeId && !$0.isCompleted }) {
+            // Compute active task position based on timer state
+            let activeStart: Date
+            let activeEnd: Date
+
+            if isOvertime {
+                // Overtime: block spans from original start to now
+                activeStart = now.addingTimeInterval(-(totalDuration + overtimeElapsed))
+                activeEnd = now
+            } else if totalDuration > 0 {
+                // Normal: show elapsed before now, remaining after now
+                let elapsed = totalDuration - remainingTime
+                activeStart = now.addingTimeInterval(-elapsed)
+                activeEnd = now.addingTimeInterval(remainingTime)
+            } else {
+                // Fallback: no timer state, just use duration from now
+                let task = plan.tasks.first(where: { $0.id == activeId })
+                activeStart = now
+                activeEnd = now.addingTimeInterval(task?.duration ?? 0)
+            }
+
+            allSlots.append(.taskFragment(
+                taskId: activeId,
+                startTime: activeStart,
+                endTime: activeEnd,
+                fragmentIndex: 0,
+                duration: activeEnd.timeIntervalSince(activeStart)
+            ))
+
+            // Compute pending timeline for remaining tasks (excluding active task)
+            var pendingPlan = plan
+            pendingPlan.tasks = plan.tasks.filter { $0.id != activeId }
+            let pendingStartTime = isOvertime ? now : now.addingTimeInterval(remainingTime)
+            let pendingSlots = computeTimeline(plan: pendingPlan, startTime: pendingStartTime)
+            allSlots.append(contentsOf: pendingSlots)
+        } else {
+            // No active task — compute pending timeline from now
+            let pendingSlots = computeTimeline(plan: plan, startTime: now)
+            allSlots.append(contentsOf: pendingSlots)
+        }
 
         // Sort all slots by start time
         allSlots.sort { $0.startTime < $1.startTime }
