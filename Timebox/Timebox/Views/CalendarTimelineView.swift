@@ -153,7 +153,7 @@ struct CalendarTimelineView: View {
                 }
             }
 
-            Text("\(task.title) \(formatCompactDuration(task.duration))\(isFragment ? "*" : "") (\(TimeFormatting.formatTightTimeRange(start: slotStart, end: slotEnd)))")
+            Text("\(task.title)   \(formatCompactDuration(task.duration))\(isFragment ? "*" : "")   (\(TimeFormatting.formatTightTimeRange(start: slotStart, end: slotEnd)))")
                 .font(.system(size: 11))
                 .fontWeight(timerVM.activeTaskId == task.id ? .semibold : .regular)
                 .lineLimit(1)
@@ -203,7 +203,7 @@ struct CalendarTimelineView: View {
                 .font(.system(size: 9))
                 .foregroundColor(event.color)
 
-            Text("\(event.title) \(formatCompactDuration(event.plannedDuration)) (\(TimeFormatting.formatTightTimeRange(start: slotStart, end: slotEnd)))")
+            Text("\(event.title)   [\(TimeFormatting.formatTightTimeRange(start: slotStart, end: slotEnd))]")
                 .font(.system(size: 11))
                 .fontWeight(.semibold)
                 .lineLimit(1)
