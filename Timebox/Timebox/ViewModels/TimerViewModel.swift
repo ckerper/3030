@@ -476,6 +476,12 @@ class TimerViewModel: ObservableObject {
             savedRemainingTimes.removeValue(forKey: id)
         }
 
+        // Compute actualStartTime from elapsed time so calendar shows correct duration
+        if let idx = dayPlanVM.dayPlan.tasks.firstIndex(where: { $0.id == id }) {
+            let elapsed = isOvertime ? (totalDuration + overtimeElapsed) : (totalDuration - remainingTime)
+            dayPlanVM.dayPlan.tasks[idx].actualStartTime = Date().addingTimeInterval(-elapsed)
+        }
+
         dayPlanVM.completeTask(id: id)
 
         // Advance to next pending in calendar mode
@@ -533,6 +539,13 @@ class TimerViewModel: ObservableObject {
         totalDuration = task.duration
         overtimeElapsed = 0
         isOvertime = false
+
+        // Clear stale actualStartTime so it gets re-set on next start or at completion
+        if let dayPlanVM = dayPlanVM,
+           let idx = dayPlanVM.dayPlan.tasks.firstIndex(where: { $0.id == task.id }) {
+            dayPlanVM.dayPlan.tasks[idx].actualStartTime = nil
+        }
+
         persistState()
     }
 
