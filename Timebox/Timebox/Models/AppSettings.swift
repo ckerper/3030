@@ -8,6 +8,9 @@ class AppSettings: ObservableObject, Codable {
     // Planned task adjustment increment (in seconds)
     @Published var plannedTaskIncrement: TimeInterval = 300 // 5 minutes
 
+    // Shared increment selector index (0=1m, 1=5m, 2=15m) — synced between List & Calendar modes
+    @Published var selectedIncrementIndex: Int = 1
+
     // Display toggles
     @Published var showPieTimer: Bool = false
     @Published var autoStartNextTask: Bool = false
@@ -65,6 +68,7 @@ class AppSettings: ObservableObject, Codable {
         case keepScreenOn
         case appMode
         case calendarZoom
+        case selectedIncrementIndex
         case darkMode
     }
 
@@ -83,6 +87,7 @@ class AppSettings: ObservableObject, Codable {
         keepScreenOn = try container.decodeIfPresent(Bool.self, forKey: .keepScreenOn) ?? false
         appMode = try container.decodeIfPresent(AppModeSetting.self, forKey: .appMode) ?? .list
         calendarZoom = try container.decodeIfPresent(CalendarZoomSetting.self, forKey: .calendarZoom) ?? .oneHour
+        selectedIncrementIndex = try container.decodeIfPresent(Int.self, forKey: .selectedIncrementIndex) ?? 1
         darkMode = try container.decodeIfPresent(DarkModeSetting.self, forKey: .darkMode) ?? .system
     }
 
@@ -99,6 +104,7 @@ class AppSettings: ObservableObject, Codable {
         try container.encode(keepScreenOn, forKey: .keepScreenOn)
         try container.encode(appMode, forKey: .appMode)
         try container.encode(calendarZoom, forKey: .calendarZoom)
+        try container.encode(selectedIncrementIndex, forKey: .selectedIncrementIndex)
         try container.encode(darkMode, forKey: .darkMode)
     }
 
