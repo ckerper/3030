@@ -5,6 +5,7 @@ struct AddTaskView: View {
     @State private var inputText: String = ""
     @State private var selectedColor: String
     @State private var showBulkConfirmation = false
+    @FocusState private var titleFocused: Bool
     @State private var bulkLines: [SmartTextParser.ParseResult] = []
     @State private var showAmbiguousPrompt = false
     @State private var ambiguousResult: SmartTextParser.ParseResult?
@@ -35,6 +36,7 @@ struct AddTaskView: View {
                     .textFieldStyle(.roundedBorder)
                     .padding(.horizontal)
                     .lineLimit(1...6)
+                    .focused($titleFocused)
 
                 if !inputText.isEmpty {
                     let preview = SmartTextParser.parseLine(inputText)
@@ -93,6 +95,7 @@ struct AddTaskView: View {
                 Spacer()
             }
             .padding(.top)
+            .onAppear { titleFocused = true }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
