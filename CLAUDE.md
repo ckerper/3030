@@ -74,6 +74,9 @@ Timebox/
 - **TimerViewModel**: Extended with `activeEventId`, `isTimingEvent`, event interruption/completion logic
 - **Design doc**: See `PLANNER_DESIGN.md` for full specification
 
+## Build Environment
+- **No Xcode or Swift compiler** is available in the Claude Code remote environment — do not attempt `xcodebuild` or `swift build` to verify compilation. The user builds locally on their Mac.
+
 ## Developer Account & Constraints
 - **Apple Developer Account**: Free account (not paid/team)
 - **Implications**: No access to paywalled functionality like CloudKit iCloud sync or push notifications

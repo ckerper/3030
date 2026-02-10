@@ -331,6 +331,17 @@ class TimerViewModel: ObservableObject {
         // If we're timing an event, don't switch
         if isTimingEvent { return }
 
+        // If we're currently inside a scheduled event's time window, don't set an
+        // active task — it would cause computeFullTimeline to place the task at "now"
+        // instead of after the event ends.
+        let now = Date()
+        let insideEvent = dayPlanVM.dayPlan.events.contains { event in
+            !event.isCompleted &&
+            event.startTime <= now &&
+            now < event.startTime.addingTimeInterval(event.plannedDuration)
+        }
+        if insideEvent { return }
+
         let firstPending = dayPlanVM.pendingTasks.first
 
         guard let target = firstPending else {

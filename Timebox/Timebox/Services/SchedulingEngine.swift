@@ -179,9 +179,8 @@ struct SchedulingEngine {
                         duration: frag.duration
                     ))
                 }
-            } else {
-                // Legacy / non-fragmented: single block
-                let end = task.actualEndTime ?? now
+            } else if let end = task.actualEndTime {
+                // Legacy / non-fragmented: single block with a known end time
                 let start = task.actualStartTime ?? end.addingTimeInterval(-task.duration)
                 allSlots.append(.taskFragment(
                     taskId: task.id,
@@ -191,6 +190,8 @@ struct SchedulingEngine {
                     duration: end.timeIntervalSince(start)
                 ))
             }
+            // else: completed with no timing data at all — skip rather than
+            // showing a phantom block that slides with the current time
         }
 
         // Handle the active task separately if timer state is provided
@@ -231,11 +232,15 @@ struct SchedulingEngine {
 
             let currentFragIndex = frozenFragments.count
 
-            // 3. Split the current fragment around any future non-completed events
+            // 3. Split the current fragment around non-completed events that overlap it.
+            //    This includes both events starting within the fragment AND events already
+            //    underway at currentFragStart (e.g. we're mid-event when a task is active).
             let overlappingEvents = plan.events.filter { event in
-                !event.isCompleted &&
-                event.startTime > currentFragStart &&
-                event.startTime < currentFragEnd
+                guard !event.isCompleted else { return false }
+                let eventEnd = event.startTime.addingTimeInterval(event.plannedDuration)
+                // Event overlaps the fragment if it hasn't ended before fragment start
+                // and it starts before the fragment ends
+                return eventEnd > currentFragStart && event.startTime < currentFragEnd
             }.sorted { $0.startTime < $1.startTime }
 
             var consumedEventIds: Set<UUID> = []
@@ -256,6 +261,7 @@ struct SchedulingEngine {
                     let eventEnd = event.startTime.addingTimeInterval(event.plannedDuration)
 
                     if event.startTime > cursor {
+                        // Gap before this event — emit a task fragment
                         allSlots.append(.taskFragment(
                             taskId: activeId,
                             startTime: cursor,
@@ -276,13 +282,22 @@ struct SchedulingEngine {
                     cursor = max(cursor, eventEnd)
                 }
 
-                if cursor < currentFragEnd {
+                // Adjust currentFragEnd to account for time consumed by events
+                let totalEventTime = overlappingEvents.reduce(TimeInterval(0)) { total, event in
+                    let eventEnd = event.startTime.addingTimeInterval(event.plannedDuration)
+                    let overlapStart = max(currentFragStart, event.startTime)
+                    let overlapEnd = min(currentFragEnd, eventEnd)
+                    return total + max(0, overlapEnd.timeIntervalSince(overlapStart))
+                }
+                let adjustedFragEnd = currentFragEnd.addingTimeInterval(totalEventTime)
+
+                if cursor < adjustedFragEnd {
                     allSlots.append(.taskFragment(
                         taskId: activeId,
                         startTime: cursor,
-                        endTime: currentFragEnd,
+                        endTime: adjustedFragEnd,
                         fragmentIndex: fragmentIndex,
-                        duration: currentFragEnd.timeIntervalSince(cursor)
+                        duration: adjustedFragEnd.timeIntervalSince(cursor)
                     ))
                 }
             }
