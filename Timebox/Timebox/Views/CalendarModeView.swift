@@ -15,12 +15,12 @@ struct CalendarModeView: View {
     @State private var editingEvent: Event?
     @State private var editingTask: TaskItem?
 
-    // Shared increment selector state
-    @State private var selectedIncrementIndex = 1
+    // Increment options (shared index lives in settings for cross-mode sync)
     private let incrementOptions: [TimeInterval] = [60, 300, 900]
+    private let incrementLabels = ["1m", "5m", "15m"]
 
     var currentIncrement: TimeInterval {
-        incrementOptions[selectedIncrementIndex]
+        incrementOptions[settings.selectedIncrementIndex]
     }
 
     // Static background — active task color is shown only in the compact timer bar
@@ -40,6 +40,9 @@ struct CalendarModeView: View {
                 if dayPlanVM.dayPlan.tasks.isEmpty && dayPlanVM.dayPlan.events.isEmpty {
                     calendarEmptyState
                 } else {
+                    // Increment selector
+                    incrementSelector
+
                     // Active item display (compact timer)
                     if timerVM.activeTaskId != nil || timerVM.activeEventId != nil {
                         compactTimerBar
@@ -136,14 +139,6 @@ struct CalendarModeView: View {
 
             Spacer()
 
-            // Mode indicator
-            Text("Calendar")
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.secondary)
-
-            Spacer()
-
             HStack(spacing: 16) {
                 // Add task
                 Button {
@@ -163,6 +158,15 @@ struct CalendarModeView: View {
                         .foregroundColor(.primary)
                 }
 
+                // Switch to list mode
+                Button {
+                    settings.appMode = .list
+                } label: {
+                    Image(systemName: "list.bullet")
+                        .font(.system(size: 18))
+                        .foregroundColor(.primary)
+                }
+
                 // Settings
                 Button {
                     showSettings = true
@@ -175,6 +179,26 @@ struct CalendarModeView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
+    }
+
+    // MARK: - Increment Selector
+
+    private var incrementSelector: some View {
+        HStack {
+            Text("Adjust by:")
+                .font(.caption)
+                .foregroundColor(.primary.opacity(0.7))
+
+            Picker("Increment", selection: $settings.selectedIncrementIndex) {
+                ForEach(0..<incrementLabels.count, id: \.self) { i in
+                    Text(incrementLabels[i]).tag(i)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 160)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 6)
     }
 
     /// Adjust time in calendar mode: updates both the timer AND the stored task/event duration

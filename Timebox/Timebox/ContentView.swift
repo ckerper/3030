@@ -16,12 +16,11 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var showAddTask = false
 
-    // Shared increment selector state
-    @State private var selectedIncrementIndex = 1 // 0=1m, 1=5m, 2=15m
+    // Increment options (shared index lives in settings for cross-mode sync)
     private let incrementOptions: [TimeInterval] = [60, 300, 900]
 
     var currentIncrement: TimeInterval {
-        incrementOptions[selectedIncrementIndex]
+        incrementOptions[settings.selectedIncrementIndex]
     }
 
     // Adaptive background based on active task + color scheme
@@ -158,7 +157,7 @@ struct ContentView: View {
                         timerVM: timerVM,
                         settings: settings,
                         gestureHints: gestureHints,
-                        selectedIncrementIndex: $selectedIncrementIndex,
+                        selectedIncrementIndex: $settings.selectedIncrementIndex,
                         incrementOptions: incrementOptions
                     )
                 }
@@ -277,6 +276,14 @@ struct ContentView: View {
                     showingPresets = true
                 } label: {
                     Image(systemName: "tray.full")
+                        .font(.system(size: 18))
+                        .foregroundColor(.primary)
+                }
+
+                Button {
+                    settings.appMode = .calendar
+                } label: {
+                    Image(systemName: "calendar")
                         .font(.system(size: 18))
                         .foregroundColor(.primary)
                 }
