@@ -97,6 +97,7 @@ class TaskListViewModel: ObservableObject {
         guard taskList.tasks.indices.contains(index) else { return }
         saveUndoState(description: "Complete task")
         taskList.tasks[index].isCompleted = true
+        taskList.tasks[index].actualEndTime = Date()
     }
 
     /// Mark a completed task as not completed and move it back to the active list.

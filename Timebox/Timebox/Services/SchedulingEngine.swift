@@ -179,9 +179,8 @@ struct SchedulingEngine {
                         duration: frag.duration
                     ))
                 }
-            } else {
-                // Legacy / non-fragmented: single block
-                let end = task.actualEndTime ?? now
+            } else if let end = task.actualEndTime {
+                // Legacy / non-fragmented: single block with a known end time
                 let start = task.actualStartTime ?? end.addingTimeInterval(-task.duration)
                 allSlots.append(.taskFragment(
                     taskId: task.id,
@@ -191,6 +190,8 @@ struct SchedulingEngine {
                     duration: end.timeIntervalSince(start)
                 ))
             }
+            // else: completed with no timing data at all — skip rather than
+            // showing a phantom block that slides with the current time
         }
 
         // Handle the active task separately if timer state is provided
