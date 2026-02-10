@@ -16,7 +16,7 @@ struct AddEventView: View {
     }()
     @State private var durationMinutes: Double = 30
     @State private var selectedColor: String = "slate"
-    @State private var selectedDay: Int = 0 // -1 = yesterday, 0 = today, 1 = tomorrow
+    @State private var selectedDay: Int = 0 // 0 = today, 1 = tomorrow
 
     private let durationOptions: [Double] = [15, 30, 45, 60, 90, 120]
 
@@ -41,7 +41,6 @@ struct AddEventView: View {
 
                 Section("Start Time") {
                     Picker("Day", selection: $selectedDay) {
-                        Text("Yesterday").tag(-1)
                         Text("Today").tag(0)
                         Text("Tomorrow").tag(1)
                     }
@@ -146,7 +145,7 @@ struct AddEventView: View {
                         Spacer()
                         VStack(spacing: 4) {
                             if selectedDay != 0 {
-                                Text(selectedDay == -1 ? "Yesterday" : "Tomorrow")
+                                Text("Tomorrow")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }

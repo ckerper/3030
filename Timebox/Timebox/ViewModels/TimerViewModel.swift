@@ -246,12 +246,27 @@ class TimerViewModel: ObservableObject {
             savedRemainingTimes.removeValue(forKey: id)
         }
 
-        // Set actual times so the task shows on calendar after completion
-        taskList.taskList.tasks[idx].actualEndTime = Date()
-        if taskList.taskList.tasks[idx].actualStartTime == nil {
-            let elapsed = isOvertime ? (totalDuration + overtimeElapsed) : (totalDuration - remainingTime)
-            taskList.taskList.tasks[idx].actualStartTime = Date().addingTimeInterval(-elapsed)
+        // Record the current work session as a CompletedFragment so it shows
+        // on the calendar timeline (important when task was previously started
+        // in calendar mode and already has fragments from prior sessions).
+        let now = Date()
+        let totalElapsed = isOvertime ? (totalDuration + overtimeElapsed) : (totalDuration - remainingTime)
+        let previousFragmentsElapsed = taskList.taskList.tasks[idx].completedFragments.reduce(0.0) { $0 + $1.duration }
+        let currentFragmentElapsed = totalElapsed - previousFragmentsElapsed
+        if currentFragmentElapsed > 0 {
+            let fragmentStart = now.addingTimeInterval(-currentFragmentElapsed)
+            taskList.taskList.tasks[idx].completedFragments.append(
+                CompletedFragment(startTime: fragmentStart, endTime: now)
+            )
         }
+
+        // Set actual times so the task shows on calendar after completion
+        if let firstFrag = taskList.taskList.tasks[idx].completedFragments.first {
+            taskList.taskList.tasks[idx].actualStartTime = firstFrag.startTime
+        } else if taskList.taskList.tasks[idx].actualStartTime == nil {
+            taskList.taskList.tasks[idx].actualStartTime = now.addingTimeInterval(-totalElapsed)
+        }
+        taskList.taskList.tasks[idx].actualEndTime = now
 
         // Mark completed
         taskList.completeTask(at: idx)
